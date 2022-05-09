@@ -12,6 +12,9 @@ notebooks/sample/
 # notebooks/**/*.ipynb
 notebooks/**/data/
 
+# Script stuff
+scripts/fit_mass/
+
 # Other
 scratch/
 

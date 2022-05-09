@@ -1,0 +1,8 @@
+# Keywords
+DATA_DIR = /geir_data/scr/lane/projects/ges-mass/data/
+APOGEE_DR = dr16
+APOGEE_RESULTS_VERS = l33
+GAIA_DR = dr2
+RO = 8.275 # Gravity+2021
+VO = 220
+ZO = 0.0208 # Bennett+2019
