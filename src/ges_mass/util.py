@@ -19,6 +19,8 @@ import copy
 from astropy import units as apu
 from astropy import coordinates
 from galpy import orbit
+import apogee.tools as apotools
+import apogee.tools.read as apread
 import pdb
 
 # ----------------------------------------------------------------------------
@@ -558,4 +560,98 @@ def make_SF_grid_orbits(apogee_fields,ds,ro,vo,zo,fudge_ll_instability=True):
     ##fi
     
     return orbs_grid
-#def
+
+def swap_in_edr3_distances_to_dr16(allstar_dr16,allstar_dr17=None,
+                                   keep_old_distances=True,return_match=False):
+    '''swap_in_dr17_distances_to_dr16:
+    
+    requires apogee.tools as apotools
+    requires apogee.tools.read as apread
+    requires copy
+    
+    Replace the DR16 AstroNN distances (calculated with Gaia DR2 and trained on 
+    DR14) with DR17 distances (calculated with Gaia eDR3 and trained on DR17). 
+    The function relies on a copy of DR17 allstar (from apogee.tools.read) 
+    with duplicates removed. There will be ~3000 stars from DR16 which do not 
+    appear in the main=True sample of DR17 because of changes in targeting 
+    flags. To get distances for all stars in DR16 then DR17 should be 
+    generated in the following manner:
+    
+    allstar_dr17 = apread.allStar(main=False, rmdups=True,
+                                  rmcomissioning=True, test=True,
+                                  use_astroNN_abundances=False,
+                                  use_astroNN_distances=True,
+                                  use_astroNN_ages=False)
+                                  
+    Note that test=True returns the data right before the main index is 
+    applied. If allstar_dr17 argument is None then it will be loaded in the 
+    above manner.
+    
+    Args:
+        allstar_dr16 (np structured array) - DR16 allstar array
+        allstar_dr17 (np structured array) - DR17 allstar array [default None]
+        keep_old_distances (bool) - Keep the old distances in the DR16 allstar 
+            array, which will be held in fields called 'old_weighted_dist' and 
+            'old_weighted_dist_error' [default True]
+        return_match (bool) - Return the new allstar DR16 as well as the 
+            match between the allstar DR16 and allstar DR17.
+        
+    Returns:
+        allstar (np structured array) - DR16 allstar array with DR17 
+            distances swapped in
+    '''
+    if allstar_dr17 is None:
+        apotools.path.change_dr('17')
+        assert apotools.path._default_dr() == '17'
+        assert apotools.path._redux_dr(apotools.path._default_dr()) == 'dr17'
+        allstar_dr17 = apread.allStar(main=False, rmdups=True,
+                                      rmcomissioning=True, test=True,
+                                      use_astroNN_abundances=False,
+                                      use_astroNN_distances=True,
+                                      use_astroNN_ages=False)
+    
+    allstar_dr16_new = copy.deepcopy(allstar_dr16)
+    
+    # APOGEE IDs
+    dr16_ids = allstar_dr16['APOGEE_ID'].astype(str)
+    dr17_ids = allstar_dr17['APOGEE_ID'].astype(str)
+    
+    # Index of dr16 in dr17
+    dr17_index = np.ones(len(dr16_ids),dtype=int)
+    multi_match_dr16 = [] # Which DR16 entries have multiple DR17 matches
+    multi_match_dr17 = [] # Indices of DR17 matches to one DR16 entry
+
+    dr17_ids_argsort = np.argsort(dr17_ids)
+    dr17_ids_sorted = dr17_ids[dr17_ids_argsort]
+
+    for i in range(len(dr16_ids)):
+        idl = np.searchsorted(dr17_ids_sorted, dr16_ids[i], side='left')
+        idr = np.searchsorted(dr17_ids_sorted, dr16_ids[i], side='right')
+        idn = idr-idl
+        if idn > 1:
+            multi_match_dr16.append(i)
+            this_match_sorted_dr17 = np.arange(idl,idr)
+            multi_match_dr17.append(
+                dr17_ids_argsort[this_match_sorted_dr17])
+            dr17_index[i] = -1
+        elif idn == 0:
+            dr17_index[i] = -2
+        else:
+            dr17_index[i] = dr17_ids_argsort[idl]
+    
+    if keep_old_distances:
+        allstar_dr16_new = np.lib.recfunctions.append_fields(allstar_dr16_new,
+            ['old_weighted_dist','old_weighted_dist_error'], 
+            [allstar_dr16_new['weighted_dist'],
+             allstar_dr16_new['weighted_dist_error']],
+            ('float64','float64'), usemask=False)
+        
+    allstar_dr16_new['weighted_dist'] =\
+        allstar_dr17['weighted_dist'][dr17_index]
+    allstar_dr16_new['weighted_dist_error'] =\
+        allstar_dr17['weighted_dist_error'][dr17_index]
+    
+    if return_match:
+        return allstar_dr16_new, dr17_index
+    else:
+        return allstar_dr16_new
