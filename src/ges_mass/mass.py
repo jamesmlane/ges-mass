@@ -898,12 +898,14 @@ def plot_model(model, params, minmax=[-50,50], nside=150):
 
 ### Distance Modulus Posterior for Model
 
-def pdistmod_one_model(densfunc, params, effsel, Rgrid, phigrid, zgrid, ds,
+def pdistmod_one_model(densfunc, params, effsel, Rgrid, phigrid, zgrid, distmods,
                    return_rate=False):
     '''pdistmod_one_model:
     
     Return the expected distance modulus distribution for a given model 
-    including the effective selection function.
+    including the effective selection function. Assume the effective selection
+    function already has the distance modulus Jacobian applied (only the factor 
+    of d**3 which matters).
     
     Args:
         densfunc (function) - Density profile
@@ -912,60 +914,98 @@ def pdistmod_one_model(densfunc, params, effsel, Rgrid, phigrid, zgrid, ds,
         Rgrid (array) - Grid of R corresponding to effsel
         phigrid (array) - Grid of phi corresponding to effsel
         zgrid (array) - Grid of z corresponding to effsel
-        ds (array) - Grid of distances corresponding to the distance modulus 
-            grid
-        return_rate (bool) - Return 
+        distmods (array) - Grid of distance moduli
+        return_rate (bool) - Return the rate function as well
     
     Returns:
         pd (array) - Normalized number of counts summed over all fields
         pdt (array) - Number of counts summed over all fields
         rate (array) - Raw number of counts per field, only if return_rate=True
     '''
-    rate = densfunc(Rgrid,phigrid,zgrid,params=params)*effsel*ds**3
+    rate = densfunc(Rgrid,phigrid,zgrid,params=params)*effsel
     pdt = np.sum(rate,axis=0)
     pd = pdt/np.sum(pdt)/(distmods[1]-distmods[0])
     if return_rate:
         return pd, pdt, rate
-    ##fi
-    return pd, pdt
+    else:
+        return pd, pdt
 
-def pdistmod_
-
-
-def pdistmod_check_fit(densfunc, samp, effsel, Rgrid, phigrid, zgrid, ds, 
-                       goodindx, sample=False):
-    '''pdistmod_check_fit:
+def pdistmod_sample(densfunc, samples, n_samples, effsel, Rgrid, phigrid, zgrid,
+                    distmods, return_rate=False):
+    '''pdistmod_sample:
     
-    Determine the distance modulus distribution for a given model
+    Return the expected distance modulus distribution for a set of models 
+    described by distribution of parameters, including the effective 
+    selection function. Assume the effective selection function already 
+    has the distance modulus Jacobian applied (only the factor of d**3 which 
+    matters).
     
     Args:
         densfunc (function) - Density profile
-        samp (array) - Fitted set of parameters for the density model
+        samples (array) - (Nsamples,params) shaped array to draw parameters from
+        n_samples (int) - Number of times to draw parameters from samples
         effsel (array) - Effective selection function (Nfield x Ndistmod)
         Rgrid (array) - Grid of R corresponding to effsel
         phigrid (array) - Grid of phi corresponding to effsel
         zgrid (array) - Grid of z corresponding to effsel
-        ds (array) - Grid of distances corresponding to the distance modulus 
-            grid
-        goodindx (array) - Usable fields in the effective selection function
-        sample (bool) - Sample based on a range of model parameters
+        distmods (array) - Grid of distance moduli
+        return_rate (bool) - Return the rate function as well.
     
     Returns:
-        
+        pd (array) - Normalized number of counts summed over all fields
+        pdt (array) - Number of counts summed over all fields
+        rate (array) - Raw number of counts per field, only if return_rate=True
     '''
-    pds = np.empty((200,len(ds)))
-    if sample:
-        for ii,params in tqdm.tqdm_notebook(enumerate(samp[np.random.randint(len(samp), size=200)]), total=200):
-            pd, pdt,rate = pdistmod_model(densfunc, params, effsel, Rgrid, 
-                phigrid, zgrid, ds, goodindx, returnrate=True)
-            pds[ii] = pd
-        return pds
+    pd = np.zeros((n_samples,effsel.shape[1]))
+    pdt = np.zeros((n_samples,effsel.shape[1]))
+    rate = np.zeros((n_samples,effsel.shape[0],effsel.shape[1]))
+    sample_randind = np.random.choice(len(samples),n_samples,replace=False)
+    for i,params in enumerate(samples[sample_randind]):
+        _pd,_pdt,_r = pdistmod_one_model(densfunc, params, effsel, Rgrid, 
+                                         phigrid, zgrid, distmods,
+                                         return_rate=True)
+        pd[i,:] = _pd
+        pdt[i,:] = _pdt
+        rate[i,:,:] = _r
+    if return_rate:
+        return pd, pdt, rate
     else:
-        pd, pdt, rate = pdistmod_model(densfunc, np.median(samp,axis=0), effsel, 
-            Rgrid, phigrid, zgrid, ds, goodindx, returnrate=True)
-        return pd
-    ##ie
-#def
+        return pd, pdt    
+
+# def pdistmod_check_fit(densfunc, samp, effsel, Rgrid, phigrid, zgrid, ds, 
+#                        goodindx, sample=False):
+#     '''pdistmod_check_fit:
+    
+#     Determine the distance modulus distribution for a given model
+    
+#     Args:
+#         densfunc (function) - Density profile
+#         samp (array) - Fitted set of parameters for the density model
+#         effsel (array) - Effective selection function (Nfield x Ndistmod)
+#         Rgrid (array) - Grid of R corresponding to effsel
+#         phigrid (array) - Grid of phi corresponding to effsel
+#         zgrid (array) - Grid of z corresponding to effsel
+#         ds (array) - Grid of distances corresponding to the distance modulus 
+#             grid
+#         goodindx (array) - Usable fields in the effective selection function
+#         sample (bool) - Sample based on a range of model parameters
+    
+#     Returns:
+        
+#     '''
+#     pds = np.empty((200,len(ds)))
+#     if sample:
+#         for ii,params in tqdm.tqdm_notebook(enumerate(samp[np.random.randint(len(samp), size=200)]), total=200):
+#             pd, pdt,rate = pdistmod_model(densfunc, params, effsel, Rgrid, 
+#                 phigrid, zgrid, ds, goodindx, returnrate=True)
+#             pds[ii] = pd
+#         return pds
+#     else:
+#         pd, pdt, rate = pdistmod_model(densfunc, np.median(samp,axis=0), effsel, 
+#             Rgrid, phigrid, zgrid, ds, goodindx, returnrate=True)
+#         return pd
+#     ##ie
+# #def
 
     
 # def fit_bin_mask(mask, effsel, goodindx, fehrange, 
