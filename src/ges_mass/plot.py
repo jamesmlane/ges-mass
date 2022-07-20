@@ -293,6 +293,44 @@ def add_ellipse(ax,cent,semi,plot_kwargs={}):
     ax.add_artist(ellipse)
 #def
 
+
+# ----------------------------------------------------------------------------
+
+# Lines equations
+
+def line_equation(x,m,b):
+    '''line_equation:
+    
+    Args:
+        x (array) - x values
+        m (float) - slope
+        b (float) - y-intercept
+    
+    Returns:
+        y (array) - y values
+    '''
+    return m*x + b
+#def
+
+
+def get_params_from_line(xs,ys):
+    '''get_params_from_line:
+    
+    Get line parameters from 2 points
+    
+    Args:
+        xs (list) - 2-element list of x points
+        ys (list) - 2-element list of y points
+    
+    Returns:
+        m (float) - slope
+        b (float) - y-intercept
+    '''
+    m = (ys[1]-ys[0])/(xs[1]-xs[0])
+    b = ys[0] - m*xs[0]
+    return m,b
+#def
+
 # ----------------------------------------------------------------------------
 
 # Kinematic spaces functions
