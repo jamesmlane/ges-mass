@@ -156,6 +156,8 @@ def iso_keys(iso_type):
     # elif: Add more dictionaries
     return _iso_keys
 
+# ----------------------------------------------------------------------------
+
 ### Isochrone sampling
 
 def sampleiso(N, iso, return_inds=False, return_iso=False, lowfeh=True):
@@ -197,8 +199,6 @@ def sampleiso(N, iso, return_inds=False, return_iso=False, lowfeh=True):
         return iso[sort][randinds]
     else:
         return iso[jkey][sort][randinds], iso[hkey][sort][randinds], iso[kkey][sort][randinds]
-    ##ie
-#def
 
 def APOGEE_iso_samples(nsamples, rec, fehrange=[-1,-1.5], lowfehgrid=True):
     '''APOGEE_iso_samples:
@@ -244,4 +244,123 @@ def APOGEE_iso_samples(nsamples, rec, fehrange=[-1,-1.5], lowfehgrid=True):
            (trec['logg'] > 1.) & (trec[logagekey] >= 10.)
     p3niso = sampleiso(nsamples,trec[mask], return_iso=True, lowfeh=lowfehgrid)
     return niso, p3niso
-#def
+
+
+# ----------------------------------------------------------------------------
+
+### IMFs
+
+def chabrier01_lognormal(m,A=0.141):
+    '''chabrier01_lognormal:
+    
+    Chabrier (2001) lognormal IMF
+    
+    Args:
+        m (float or np.array) - mass, use Msol if normalization matters
+        A (float) - Normalization [default 0.141 as per Chabrier (2001)]
+        
+    Returns
+        dn/dm (np.ndarray) - Value of the IMF for given linear mass interval
+    '''
+    return _chabrier_lognormal(m,m0=0.1,sigma=0.627,A=A)
+
+def chabrier01_exponential(m,A=3.0):
+    '''chabrier01_exponential:
+    
+    Chabrier (2001) exponential IMF
+    
+    Args:
+        m (float or np.array) - mass, use Msol if normalization matters
+        A (float) - Normalization [default 3.0 as per Chabrier (2001)]
+        
+    Returns
+        dn/dm (np.ndarray) - Value of the IMF for given linear mass interval
+    '''
+    m0 = 716.4
+    alpha = -3.3
+    beta = 0.25
+    return A*(m**alpha)*np.exp(-(m/m0)**beta)
+    
+def chabrier03_lognormal(m,A=0.158):
+    '''chabrier01_lognormal:
+    
+    Args:
+        m (float or np.array) - mass, use Msol if normalization matters
+        A (float) - Normalization [default 0.158 as per Chabrier (2003)]
+        
+    Returns
+        dn/dm (np.ndarray) - Value of the IMF for given linear mass interval
+    '''
+    return _chabrier_lognormal(m,m0=0.079,sigma=0.69,A=A)
+    
+
+def chabrier05_lognormal(m,A=0.093):
+    '''chabrier01_lognormal:
+    
+    Args:
+        m (float or np.array) - mass, use Msol if normalization matters
+        A (float) - Normalization [default 0.093 as per Chabrier (2005)]
+        
+    Returns
+        dn/dm (np.ndarray) - Value of the IMF for given linear mass interval
+    '''
+    return _chabrier_lognormal(m,m0=0.2,sigma=0.55,A=A)
+    
+
+def _chabrier_lognormal(m,m0=0.,sigma=1.,A=1.):
+    '''_chabrier_lognormal:
+    
+    Lognormal-type Chabrier initial mass function
+    
+    Args:
+    
+    Returns:
+        dn/dm (np.ndarray) - Value of the IMF for given linear mass interval
+    '''
+    dNdlogm = np.exp(-(np.log10(m)-np.log10(m0))**2/(2.*sigma**2.))
+    dlogmdm = 1./m/np.log(10.)
+    return A*dNdlogm*dlogmdm
+                     
+def kroupa(m,A=0.48):
+    '''kroupa:
+    
+    Kroupa initial mass function
+    
+    Args:
+        m (np.ndarray) - Masses [solar]
+        A (float) - Normalization for the first power law (all other follow
+            to make sure boundaries are continuous) [default 0.48 matches
+            normalization of Chabrier 2003 lognormal at 1 solar mass]
+    
+    Returns:
+        Nm (np.ndarray) - Value of the IMF for given masses  
+    '''
+    a1,a2,a3 = 0.3,1.3,2.3
+    k2 = 0.08*A
+    k3 = 0.5*k2
+    
+    if not isinstance(m,np.ndarray):
+        m = np.atleast_1d(m)
+    ##fi
+    
+    where_m_1 = np.logical_and(m>=0.01,m<0.08)
+    where_m_2 = np.logical_and(m>=0.08,m<0.5)
+    where_m_3 = m>=0.5
+    Nm = np.empty(len(m))
+    Nm[where_m_1] = A*m[where_m_1]**(-a1)
+    Nm[where_m_2] = k2*m[where_m_2]**(-a2)
+    Nm[where_m_3] = k3*m[where_m_3]**(-a3)
+    Nm[m<0.01] = 0
+    return Nm
+
+def cimf(f,a,b,intargs=()):
+    '''cimf:
+    
+    Calculate the cumulative of the initial mass function
+    
+    Args:
+        f (callable) - IMF function
+        a,b (float) - lower and upper integration bounds
+        intargs (dict) - Dictionary of parameters to pass to f [optional]
+    '''
+    return scipy.integrate.quad(f,a,b,args=intargs)[0]
