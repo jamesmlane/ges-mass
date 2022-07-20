@@ -56,8 +56,6 @@ def load_config_to_dict(fname='config.txt'):
             # Remove comments and split at =
             line_vals = line.split('#')[0].strip().split('=') 
             cdict[line_vals[0].strip().upper()] = line_vals[1].strip()
-        ##ln
-    ##wi
     return cdict
 
 def _find_config_file(fname):
@@ -127,7 +125,7 @@ def parse_config_dict(cdict,keyword):
         assert _keyword[0] in cdict, 'Keyword '+_keyword[0]+' not in cdict'
     
     float_kws =  ['RO','VO','ZO','DMOD_MIN','DMOD_MAX','LOGG_MIN','LOGG_MAX',
-                  'FEH_MIN','FEH_MAX']
+                  'FEH_MIN','FEH_MAX','FEH_MIN_GSE','FEH_MAX_GSE']
     int_kws =    ['NPROCS','NDMOD']
     string_kws = ['HOME_DIR','BASE_DIR','APOGEE_DR','APOGEE_RESULTS_VERS',
                   'GAIA_DR']
