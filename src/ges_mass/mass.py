@@ -15,6 +15,7 @@ __author__ = "James Lane"
 ### Imports
 import numpy as np
 import multiprocessing
+import itertools
 import emcee
 import tqdm
 import warnings
@@ -107,15 +108,22 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
         samples = sampler.get_chain(flat=True,discard=ncut)
     
     if MLE_init:
-        return samples, opt
+        if return_walkers:
+            return samples, opt, sampler
+        else:
+            return samples, opt
     else:
-        return samples
+        if return_walkers:
+            return samples, sampler
+        else:
+            return samples
     
-def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid, iso, 
-                              feh_range, logg_range, jkmins, n_mass=400,
-                              mass_int_type='spherical', mass_analytic=False, 
-                              int_r_range=[2.,70.], n_edge=[500,100,100], 
-                              ro=_ro, zo=_zo):
+def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid, 
+                              iso, feh_range, logg_range, jkmins, n_mass=400,
+                              mass_int_type='spherical_grid', 
+                              mass_analytic=False, int_r_range=[2.,70.], 
+                              n_edge=[500,100,100], nprocs=None, batch=False, 
+                              ro=_ro, zo=_zo, seed=0):
     '''mass_from_density_samples:
     
     Calculate the mass corresponding to a series of samples representing the 
@@ -133,9 +141,9 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid, is
             representing R,phi,z positions where the selection function is 
             evaluated
         iso (np structured array) - isochrone grid (could be multiple)
-        feh_range
-        logg_range
-        jkmins
+        feh_range (array) - 2-element array of [feh minimum, feh maximum]
+        logg_range (array)  - 2-element array of [logg minimum, logg maximum]
+        jkmins (array) - array of minimum (J-Ks)0 values (length N fields)
         n_mass (int) - Number of mass calculations to create. n_mass must be 
             less than samples.shape[0]
         mass_int_type (str) - Type of integration to do for mass calculation
@@ -144,22 +152,34 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid, is
         int_r_range (list) - List of galactocentric [r_min,r_max] for spherical 
             integration [default (2.,70.)]
         n_edge (list) - List of n_edge parameters for integration grid
+        nprocs (None) - Number of processors to use in parallel
+        batch (False) - Batch the parallelized computation?
         ro,vo,zo (float) - Galpy normalization parameters. ro used for 
             Sun-GC distance, zo used for height above galactic plane.
+        seed (int) - Random seed for numpy [default 0]
         
     Returns:
         masses (array) - Array of length n_mass of mass samples
+        facs (array) - Array of 
     '''
     # Parameters and arrays
     assert n_mass <= samples.shape[0]
     nfield = effsel.shape[0]
     facs = np.zeros(n_mass)
     isofactors = np.zeros(nfield)
+    if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk or\
+       densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
+        hasDisk = True
+        masses = np.zeros((n_mass,3))
+    else:
+        hasDisk = False
+        masses = np.zeros(n_mass)
     
     # Unpack effsel grid
     Rgrid,phigrid,zgrid = effsel_grid
     
     # Determine the isochrone mass fraction factors for each field
+    print('Calculating isochrone factors')
     for i in range(nfield):
         # The mass ratio mask is for all stars considered
         massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
@@ -187,56 +207,227 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid, is
         n_edge_r,n_edge_theta,n_edge_phi = n_edge
         Rphizgrid,deltafactor = spherical_integration_grid(r_min,r_max,n_edge_r,
                                                      n_edge_theta,n_edge_phi)
-    if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk: # or \
-       # densfunc is pdens.triaxial_einasto_zvecpa_plusexpdisk or \
-       # densfunc is pdens.triaxial_broken_angle_zvecpa_plusexpdisk or \
-       # densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
-        masses = np.zeros((n_mass,3))
-    else:
-        masses = np.zeros(n_mass)
 
     # Calculate the mass
     print('Calculating mass')
-    sample_randind = np.random.choice(len(samples),n_mass,replace=False)
-    for i,params in enumerate(samples[sample_randind]):
-        if (i+1)%10 == 0: print('sampled '+str(i+1)+'/'+str(n_mass), end='\r')
-        # Note effsel must have area factors and Jacobians applied!
-        rate = densfunc(Rgrid,phigrid,zgrid,params=params)*effsel
-        sumrate = np.sum(rate.T/isofactors)
-        fac = n_star/sumrate
-        if mass_analytic:
-            # Only for spherical power law!
-            if not densfunc is pdens.spherical:
-                warnings.warn('mass_analytic=True only recommended for '+\
-                              'spherical power law!')
-            rsun = np.sqrt(ro**2+zo**2)
-            r_min,r_max = int_r_range
-            alpha = params[0] # Assume alpha is the first parameter?
-            integral = 4*np.pi*rsun**alpha*((r_max**(3-alpha))/(3-alpha)-\
-                                            (r_min**(3-alpha))/(3-alpha))
-            masses[i] = integral*fac
+    
+    np.random.seed(seed)
+    samples_randind = samples[np.random.choice(len(samples),n_mass,
+                                               replace=False)]
+    # Parallel?
+    if nprocs and nprocs > 1:
+        # Batch computing?
+        if batch and (samples_randind.shape[0]%nprocs==0):
+            print('Batch processing masses in parallel')
+            _calc_mass_generator = zip(samples_randind.reshape(
+                                           nprocs,
+                                           int(samples_randind.shape[0]/nprocs),
+                                           samples_randind.shape[1]),
+                                       itertools.repeat(densfunc),
+                                       itertools.repeat(n_star),
+                                       itertools.repeat(effsel),
+                                       itertools.repeat(effsel_grid),
+                                       itertools.repeat(isofactors),
+                                       itertools.repeat(Rphizgrid),
+                                       itertools.repeat(deltafactor),
+                                       itertools.repeat(n_mass)
+                                      )
+            counter = multiprocessing.Value('i', 0)
+            with multiprocessing.Pool(processes=nprocs,
+                                      initializer=_calc_mass_multiprocessing_init,
+                                      initargs=(counter,)) as p:
+                results = p.starmap(_calc_mass_batch, _calc_mass_generator)
+                masses,facs = np.moveaxis(np.array(results),2,1).reshape(
+                    samples_randind.shape[0],2).T
+            return masses, facs  
+        # No batch computing
         else:
-            if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk: # or\
-               # densfunc is pdens.triaxial_einasto_zvecpa_plusexpdisk or\
-               # densfunc is pdens.triaxial_broken_angle_zvecpa_plusexpdisk or\
-               # densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
-                denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
-                                 params=params, split=True)
+            print('Processing masses in parallel, no batching')
+            _calc_mass_generator = zip(samples_randind,
+                                       itertools.repeat(densfunc),
+                                       itertools.repeat(n_star),
+                                       itertools.repeat(effsel),
+                                       itertools.repeat(effsel_grid),
+                                       itertools.repeat(isofactors),
+                                       itertools.repeat(Rphizgrid),
+                                       itertools.repeat(deltafactor),
+                                       itertools.repeat(n_mass)
+                                      )
+            counter = multiprocessing.Value('i', 0)
+            with multiprocessing.Pool(processes=nprocs,
+                                      initializer=_calc_mass_multiprocessing_init,
+                                      initargs=(counter,)) as p:
+                results = p.starmap(_calc_mass, _calc_mass_generator)
+                masses,facs = np.array(results).T
+            return masses, facs
+    # Serial        
+    else:
+        print('Processing masses in serial')
+        for i,params in enumerate(samples_randind):
+            if (i+1)%10 == 0: print('sampled '+str(i+1)+'/'+str(n_mass), 
+                                    end='\r')
+            rate = densfunc(Rgrid,phigrid,zgrid,params=params)*effsel
+            sumrate = np.sum(rate.T/isofactors)
+            fac = n_star/sumrate
+            if mass_analytic:
+                # Only for spherical power law!
+                if not densfunc is pdens.spherical:
+                    warnings.warn('mass_analytic=True only recommended for '+\
+                                  'spherical power law!')
+                rsun = np.sqrt(ro**2+zo**2)
+                r_min,r_max = int_r_range
+                alpha = params[0] # Assume alpha is the first parameter?
+                integral = 4*np.pi*rsun**alpha*((r_max**(3-alpha))/(3-alpha)-\
+                                                (r_min**(3-alpha))/(3-alpha))
+                masses[i] = integral*fac
+            if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk or\
+               densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk: 
+                denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],
+                                    Rphizgrid[:,2], params=params, 
+                                    split=True)
                 halodens = denstxyz[0]*fac
                 diskdens = denstxyz[1]*fac
-                fulldens = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
-                                 params=params)*fac
+                fulldens = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],
+                                    Rphizgrid[:,2], params=params)*fac
                 masses[i] = np.sum(halodens*deltafactor),\
-                             np.sum(diskdens*deltafactor),\
-                             np.sum(fulldens*deltafactor)
+                            np.sum(diskdens*deltafactor),\
+                            np.sum(fulldens*deltafactor)
             else:
                 denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],
                                     Rphizgrid[:,2], params=params)*fac
                 masses[i] =  np.sum(denstxyz*deltafactor)
-        facs[i] = fac
-        # Also maybe some sort of actual integrator?
+            facs[i] = fac
+            # Also maybe some sort of actual integrator?
+        return masses, facs
 
-    return masses, facs
+def _calc_mass_multiprocessing_init(args):
+    '''_calc_mass_multiprocessing_init:
+    
+    Initialize a counter for the multiprocessing call
+    '''
+    global counter
+    counter = args
+    
+    
+def _calc_mass(params, densfunc, n_star, effsel, effsel_grid, isofactors, 
+               Rphizgrid, deltafactor, n_mass):
+    '''_calc_mass:
+    
+    Calculate the mass using spherical grid integration for one set of 
+    parameters
+    
+    Args:
+        params (array) - array of parameter arguments to densfunc
+        densfunc (callable) - Density function with parameters to be fit,
+            has the signature (R,phi,z,params) and returns density 
+            normalized to solar
+        n_star (int) - Number of stars in the fitting sample
+        effsel (array) - Array of shape (Nfield,Ndmod) where the effective
+            selection function is evaluated.
+        effsel_grid (list) - Length-3 list of grids of shape (effsel) 
+            representing R,phi,z positions where the selection function is 
+            evaluated
+        isofactors (array) - isochrone factors average_mass / mass_ratio
+        Rphizgrid (array) - Array of shape (N,3) where N is nr*ntheta*nphi 
+            of cylindrical R,phi,z coordinates for the grid
+        deltafactor (array) - Array of shape (N) where N is nr*ntheta*nphi of 
+            integral delta factors: r^2 sin(theta) dr dtheta dphi
+    
+    Returns:
+        mass (float) - Mass in Msun
+        fac (float) - factor to convert from normalized density to Msun/
+            pc**3
+    '''
+    # Unpack
+    Rgrid,phigrid,zgrid = effsel_grid
+    # Note effsel must have area factors and Jacobians applied!
+    rate = densfunc(Rgrid,phigrid,zgrid,params=params)*effsel
+    sumrate = np.sum(rate.T/isofactors)
+    fac = n_star/sumrate
+    if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk or\
+       densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk: 
+        denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
+                            params=params, split=True)
+        halodens = denstxyz[0]*fac
+        diskdens = denstxyz[1]*fac
+        fulldens = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
+                         params=params)*fac
+        mass = np.sum(halodens*deltafactor),\
+                     np.sum(diskdens*deltafactor),\
+                     np.sum(fulldens*deltafactor)
+    else:
+        denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],
+                            Rphizgrid[:,2], params=params)*fac
+        mass =  np.sum(denstxyz*deltafactor)
+    # Increment counter
+    global counter
+    with counter.get_lock():
+        counter.value += 1
+    if counter.value%10 == 0: print('sampled '+str(counter.value+1)+'/'+str(n_mass), 
+                                    end='\r')
+    return mass,fac
+
+def _calc_mass_batch(params, densfunc, n_star, effsel, effsel_grid, isofactors, 
+                     Rphizgrid, deltafactor, n_mass):
+    '''_calc_mass_batch:
+    
+    Calculate the mass using spherical grid integration for multiple sets of 
+    parameters. This allows the parallelization to pickle fewer things.
+    
+    Args:
+        params (array) - shape (Ns,Np) array of Ns sets of Np parameter 
+            arguments to densfunc
+        densfunc (callable) - Density function with parameters to be fit,
+            has the signature (R,phi,z,params) and returns density 
+            normalized to solar
+        n_star (int) - Number of stars in the fitting sample
+        effsel (array) - Array of shape (Nfield,Ndmod) where the effective
+            selection function is evaluated.
+        effsel_grid (list) - Length-3 list of grids of shape (effsel) 
+            representing R,phi,z positions where the selection function is 
+            evaluated
+        isofactors (array) - isochrone factors average_mass / mass_ratio
+        Rphizgrid (array) - Array of shape (N,3) where N is nr*ntheta*nphi 
+            of cylindrical R,phi,z coordinates for the grid
+        deltafactor (array) - Array of shape (N) where N is nr*ntheta*nphi of 
+            integral delta factors: r^2 sin(theta) dr dtheta dphi
+    
+    Returns:
+        mass (float) - Mass in Msun
+        fac (float) - factor to convert from normalized density to Msun/
+            pc**3
+    '''
+    # Unpack
+    Rgrid,phigrid,zgrid = effsel_grid
+    mass = np.zeros(params.shape[0])
+    facs = np.zeros(params.shape[0])
+    for i in range(params.shape[0]):
+        # Note effsel must have area factors and Jacobians applied!
+        rate = densfunc(Rgrid,phigrid,zgrid,params=params[i])*effsel
+        sumrate = np.sum(rate.T/isofactors)
+        facs[i] = n_star/sumrate
+        if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk or\
+           densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk: 
+            denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
+                                params=params[i], split=True)
+            halodens = denstxyz[0]*facs[i]
+            diskdens = denstxyz[1]*facs[i]
+            fulldens = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
+                             params=params[i])*facs[i]
+            mass[i] = np.sum(halodens*deltafactor),\
+                         np.sum(diskdens*deltafactor),\
+                         np.sum(fulldens*deltafactor)
+        else:
+            denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],
+                                Rphizgrid[:,2], params=params[i])*facs[i]
+            mass[i] =  np.sum(denstxyz*deltafactor)
+        # Increment counter
+        global counter
+        with counter.get_lock():
+            counter.value += 1
+        if counter.value%10 == 0: print('sampled '+str(counter.value+1)+'/'+str(n_mass), 
+                                        end='\r')
+    return mass,facs
 
 def spherical_integration_grid(r_min,r_max,n_edge_r,n_edge_theta,n_edge_phi):
     '''spherical_integration_grid:
