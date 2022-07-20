@@ -383,12 +383,12 @@ def triaxial_single_angle_zvecpa(R,phi,z,params=[2.,0.5,0.5,0.,0.,0.]):
     
     Args: 
         R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
-        params (float array) - [alpha,p,q,eta,theta,pa]
+        params (float array) - [alpha,p,q,theta,eta,pa]
             alpha (float) - Power law index
             p (float) - Ratio of Y to X scale lengths
             q (float) - Ratio of Z to X scale lengths
-            eta (float) - Sets scale of zvec along Z-axis
             theta (float) - Sets scale / orientation of zvec in XY plane
+            eta (float) - Sets scale of zvec along Z-axis
             pa (float) - Final rotation angle
         
     Returns
@@ -470,7 +470,7 @@ def triaxial_single_cutoff_zvecpa(R,phi,z,params=[2.,1.,0.5,0.5,0.,0.,0.]):
 
 def triaxial_broken_angle_zvecpa(R,phi,z,
     params=[2.,3.,5.,0.5,0.5,0.,0.,0.],split=False):
-    '''triaxial_broken_angle_zvecpa_zvecpa:
+    '''triaxial_broken_angle_zvecpa:
     
     Triaxial broken angle power-law density profile rotated using the zvec-pa 
     scheme (see transform_zvecpa). Note that zvec is parameterized using two 
@@ -565,8 +565,8 @@ def triaxial_single_angle_zvecpa_plusexpdisk(R,phi,z,
             alpha (float) - Power law index
             p (float) - Ratio of Y to X scale lengths
             q (float) - Ratio of Z to X scale lengths
-            eta (float) - Sets scale of zvec along Z-axis
             theta (float) - Sets scale / orientation of zvec in XY plane
+            eta (float) - Sets scale of zvec along Z-axis
             pa (float) - Final rotation angle
             fdisk (float) - Fraction of density at the location of the Sun
                 contained in the disk, halo density fraction is then (1-fdisk)
@@ -635,8 +635,8 @@ def triaxial_single_cutoff_zvecpa_plusexpdisk(R,phi,z,
             beta (float) - Inverse exponential truncation scale
             p (float) - Ratio of Y to X scale lengths
             q (float) - Ratio of Z to X scale lengths
-            eta (float) - Sets scale of zvec along Z-axis
             theta (float) - Sets scale / orientation of zvec in XY plane
+            eta (float) - Sets scale of zvec along Z-axis
             pa (float) - Final rotation angle
             fdisk (float) - Fraction of density at the location of the Sun
                 contained in the disk, halo density fraction is then (1-fdisk)
@@ -703,8 +703,8 @@ def triaxial_broken_angle_zvecpa_plusexpdisk(R,phi,z,
             beta (float) - Radius where the power law index changes
             p (float) - Ratio of Y to X scale lengths
             q (float) - Ratio of Z to X scale lengths
-            eta (float) - Sets scale of zvec along Z-axis
             theta (float) - Sets scale / orientation of zvec in XY plane
+            eta (float) - Sets scale of zvec along Z-axis
             pa (float) - Final rotation angle
             fdisk (float) - Fraction of density at the location of the Sun
                 contained in the disk, halo density fraction is then (1-fdisk)
