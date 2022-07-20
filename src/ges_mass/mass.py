@@ -35,7 +35,8 @@ _zo = 0.0208 # Bennett and Bovy
 ### Fitting
 
 def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
-             nit=250, ncut=100, MLE_init=True, just_MLE=False):
+             nit=250, ncut=100, usr_log_prior=None, MLE_init=True, 
+             just_MLE=False, return_walkers=False):
     '''fit_dens:
     
     Fit a density profile to a set of data given an effective selection 
@@ -58,10 +59,13 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
         nit (int) - Number of iterations to sample with each walker
         ncut (int) - Number of samples to cut off the beginning of the chain 
             of each walker.
+        usr_log_prior (callable) - A user-supplied log prior for convenience. 
+            Will be passed to mloglike
         MLE_init (bool) - Initialize the MCMC walkers near a maximum likelihood 
             estimate calculated starting at init? If not then initializes the 
             walkers at init
         just_MLE (bool) - Only calculate the maximum likelihood estimate
+        return_walkers (bool) - Return the walker instead of just the samples
         
     Returns:
         opt  () - 
@@ -77,7 +81,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
     # Use maximum likelihood to find a starting point
     if MLE_init:
         opt = scipy.optimize.fmin(lambda x: pmass.mloglike(x, densfunc, effsel, 
-            Rgrid, phigrid, zgrid, Rdata, phidata, zdata), init, 
+            Rgrid, phigrid, zgrid, Rdata, phidata, zdata, usr_log_prior), init, 
             full_output=True)
         print('MLE result: '+str(opt[0]))
         if just_MLE:
@@ -93,7 +97,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
     with multiprocessing.Pool(nprocs) as pool:
         sampler = emcee.EnsembleSampler(nwalkers, ndim, pmass.loglike, 
             args=(densfunc, effsel, Rgrid, phigrid, zgrid, Rdata, phidata, 
-                  zdata), pool=pool)
+                  zdata, usr_log_prior), pool=pool)
         print('Generating MCMC samples...')
         for i, result in enumerate(sampler.sample(pos, iterations=nit)):
             if (i+1)%10 == 0: print('sampled '+str(i+1)+'/'+str(nit), end='\r')
@@ -355,7 +359,8 @@ def mloglike(*args, **kwargs):
     '''
     return -loglike(*args,**kwargs)
 
-def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, dataR, dataphi, dataz):
+def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, dataR, dataphi, 
+            dataz, usr_log_prior=None):
     '''loglike:
     
     log-likelihood for the inhomogeneous Poisson point process. Accounts for
@@ -371,13 +376,26 @@ def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, dataR, dataphi, dat
         dataR (array) - data R positions
         dataphi (array) - data phi positions
         dataz (array) - data z positions
+        usr_log_prior (callable) - Extra prior supplied by the user at runtime. 
+            Included for flexibility so not all priors need to be hardcoded. 
+            Call signature should be usr_log_prior(densfunc,params) and function 
+            should return the log of the prior value. Will check for -np.inf 
+            and break out of the likelihood call if it is returned.
     
     Returns:
         log_posterior (array) - log of the likelihood + log of the prior
     '''
-    if not check_prior(densfunc, params):
+    # Evaluate the domain of the prior
+    if not domain_prior(densfunc, params):
         return -np.inf
-    #the next parts are usually 0!
+    # Evaluate the user-supplied prior
+    if callable(usr_log_prior):
+        usrlogprior = usr_log_prior(densfunc,params)
+        if np.isneginf(usrlogprior):
+            return usrlogprior
+    else:
+        usrlogprior = 0
+    # Evaluate the informative prior
     logprior = log_prior(densfunc, params)
     logdatadens = np.log(tdens(densfunc, dataR, dataphi, dataz, params=params))
     logeffvol = np.log(effvol(densfunc,effsel,Rgrid,phigrid,zgrid,params=params))
@@ -385,7 +403,7 @@ def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, dataR, dataphi, dat
     loglike = np.sum(logdatadens)-len(dataR)*logeffvol
     if not np.isfinite(loglike):
         return -np.inf
-    return logprior + loglike
+    return logprior + usrlogprior + loglike
 
 def effvol(densfunc, effsel, Rgrid, phigrid, zgrid, params=None):
     '''effvol:
@@ -462,10 +480,11 @@ def log_prior(densfunc, params):
     #     prior = norm.pdf(params[0], loc=20, scale=10)
     #     return np.log(prior)
 
-def check_prior(densfunc, params):
-    '''check_prior:
+def domain_prior(densfunc, params):
+    '''domain_prior:
     
-    Check the uninformative prior on all density models
+    Evaluate an uninformative domain prior on the parameters of each density 
+    profile
     
     Args:
         densfunc (function) - Density function
@@ -474,129 +493,167 @@ def check_prior(densfunc, params):
     Returns:
         prior (bool) - Boolean corresponding to the uninformative prior    
     '''
+    alpha_positive = False
     if densfunc is pdens.spherical:
-        if params[0] < 0.:return False
-        else: return True
+        # alpha
+        if params[0] < 0. and alpha_positive:return False
+        return True
     if densfunc is pdens.axisymmetric:
-        if params[0] < 0.:return False
-        elif params[1] < 0.1:return False
-        elif params[1] > 1.:return False
-        else: return True
+        # alpha, q
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.1:return False
+        if params[1] > 1.:return False
+        return True
     if densfunc is pdens.triaxial_norot:
-        if params[0] < 0.:return False
-        elif params[1] < 0.1:return False
-        elif params[1] > 1.:return False
-        elif params[2] < 0.1:return False
-        elif params[2] > 1.:return False
-        else: return True
+        # alpha, p, q
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.1:return False
+        if params[1] > 1.:return False
+        if params[2] < 0.1:return False
+        if params[2] > 1.:return False
+        return True
     if densfunc is pdens.triaxial_single_angle_aby:
-        if params[0] < 0.:return False
-        elif params[1] < 0.1:return False
-        elif params[1] > 10.:return False
-        elif params[2] < 0.1:return False
-        elif params[2] > 10.:return False
-        elif params[3] < 0.:return False
-        elif params[3] > 1.:return False
-        elif params[4] < 0.:return False
-        elif params[4] > 1.:return False
-        elif params[5] < 0.:return False
-        elif params[5] > 1.:return False
-        else:return True
+        # alpha, p, q, A, B, Y
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.1:return False
+        if params[1] > 10.:return False
+        if params[2] < 0.1:return False
+        if params[2] > 10.:return False
+        if params[3] < 0.:return False
+        if params[3] > 1.:return False
+        if params[4] < 0.:return False
+        if params[4] > 1.:return False
+        if params[5] < 0.:return False
+        if params[5] > 1.:return False
+        return True
     if densfunc is pdens.triaxial_single_angle_zvecpa:
-        if params[0] < 0.:return False
-        elif params[1] < 0.1:return False
-        elif params[1] > 1.:return False
-        elif params[2] < 0.1:return False
-        elif params[2] > 1.:return False
-        elif params[3] < 0.:return False
-        elif params[3] > 1.:return False
-        elif params[4] < 0.:return False
-        elif params[4] > 1.:return False
-        elif params[5] < 0.:return False
-        elif params[5] > 1.:return False
-        else:return True
-    if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk:
-        if params[0] < 0.:return False
-        elif params[1] < 0.1:return False
-        elif params[1] > 1.:return False
-        elif params[2] < 0.1:return False
-        elif params[2] > 1.:return False
-        elif params[3] <= 0.:return False
-        elif params[3] >= 1.:return False
-        elif params[4] <= 0.:return False
-        elif params[4] >= 1.:return False
-        elif params[5] <= 0.:return False
-        elif params[5] >= 1.:return False
-        elif params[6] < 0.:return False
-        elif params[6] > 1.:return False
-        else:return True
-    if densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
-        if params[0] < 0.:return False
+        # alpha, p, q, theta, eta, phi
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.1:return False
+        if params[1] > 1.:return False
+        if params[2] < 0.1:return False
+        if params[2] > 1.:return False
+        if params[3] < 0.:return False
+        if params[3] > 1.:return False
+        if params[4] < 0.:return False
+        if params[4] > 1.:return False
+        if params[5] < 0.:return False
+        if params[5] > 1.:return False
+        return True
+    if densfunc is pdens.triaxial_single_cutoff_zvecpa:
+        # alpha, beta, p, q, theta, eta, phi
+        if params[0] < 0. and alpha_positive:return False
         if params[1] < 0.:return False
-        elif params[2] < 0.1:return False
-        elif params[2] > 1.:return False
-        elif params[3] < 0.1:return False
-        elif params[3] > 1.:return False
-        elif params[4] <= 0.:return False
-        elif params[4] >= 1.:return False
-        elif params[5] <= 0.:return False
-        elif params[5] >= 1.:return False
-        elif params[6] <= 0.:return False
-        elif params[6] >= 1.:return False
-        elif params[7] < 0.:return False
-        elif params[7] > 1.:return False
-        else:return True
-    if densfunc is pdens.triaxial_broken_angle_zvecpa_plusexpdisk:
-        if params[0] < 0.:return False
+        if params[2] < 0.1:return False
+        if params[2] > 1.:return False
+        if params[3] < 0.1:return False
+        if params[3] > 1.:return False
+        if params[4] <= 0.:return False
+        if params[4] >= 1.:return False
+        if params[5] <= 0.:return False
+        if params[5] >= 1.:return False
+        if params[6] <= 0.:return False
+        if params[6] >= 1.:return False
+        return True
+    if densfunc is pdens.triaxial_broken_angle_zvecpa:
+        if params[0] < 0. and alpha_positive:return False
         if params[1] < 0.:return False
         if params[2] < 0.:return False
-        elif params[3] < 0.1:return False
-        elif params[3] > 1.:return False
-        elif params[4] < 0.1:return False
-        elif params[4] > 1.:return False
-        elif params[5] <= 0.:return False
-        elif params[5] >= 1.:return False
-        elif params[6] <= 0.:return False
-        elif params[6] >= 1.:return False
-        elif params[7] <= 0.:return False
-        elif params[7] >= 1.:return False
-        elif params[8] < 0.:return False
-        elif params[8] > 1.:return False
-        else:return True
-    if densfunc is pdens.triaxial_einasto_zvecpa:
-        if params[0] < 0.:return False
-        elif params[1] < 0.5:return False
-        elif params[2] < 0.1:return False
-        elif params[2] > 1.:return False
-        elif params[3] < 0.1:return False
-        elif params[3] > 1.:return False
-        elif params[4] <= 0.:return False
-        elif params[4] >= 1.:return False
-        elif params[5] <= 0.:return False
-        elif params[5] >= 1.:return False
-        elif params[6] <= 0.:return False
-        elif params[6] >= 1.:return False
-        elif params[7] <= 0.:return False
-        elif params[7] >= 1.:return False
-        else:return True
-    if densfunc is pdens.triaxial_einasto_zvecpa_plusexpdisk:
-        if params[0] < 0.:return False
-        elif params[1] < 0.5:return False
-        elif params[2] < 0.1:return False
-        elif params[2] > 1.:return False
-        elif params[3] < 0.1:return False
-        elif params[3] > 1.:return False
-        elif params[4] <= 0.:return False
-        elif params[4] >= 1.:return False
-        elif params[5] <= 0.:return False
-        elif params[5] >= 1.:return False
-        elif params[6] <= 0.:return False
-        elif params[6] >= 1.:return False
-        elif params[7] <= 0.:return False
-        elif params[7] >= 1.:return False
-        elif params[8] <= 0.:return False
-        elif params[8] >= 1.:return False
-        else:return True
+        if params[3] < 0.1:return False
+        if params[3] > 1.:return False
+        if params[4] < 0.1:return False
+        if params[4] > 1.:return False
+        if params[5] <= 0.:return False
+        if params[5] >= 1.:return False
+        if params[6] <= 0.:return False
+        if params[6] >= 1.:return False
+        if params[7] <= 0.:return False
+        if params[7] >= 1.:return False
+        return True
+    if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk:
+        # alpha, p, q, theta, eta, phi, fdisc
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.1:return False
+        if params[1] > 1.:return False
+        if params[2] < 0.1:return False
+        if params[2] > 1.:return False
+        if params[3] <= 0.:return False
+        if params[3] >= 1.:return False
+        if params[4] <= 0.:return False
+        if params[4] >= 1.:return False
+        if params[5] <= 0.:return False
+        if params[5] >= 1.:return False
+        if params[6] < 0.:return False
+        if params[6] > 1.:return False
+        return True
+    if densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
+        # alpha, beta, p, q, theta, eta, phi, fdisc
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.:return False
+        if params[2] < 0.1:return False
+        if params[2] > 1.:return False
+        if params[3] < 0.1:return False
+        if params[3] > 1.:return False
+        if params[4] <= 0.:return False
+        if params[4] >= 1.:return False
+        if params[5] <= 0.:return False
+        if params[5] >= 1.:return False
+        if params[6] <= 0.:return False
+        if params[6] >= 1.:return False
+        if params[7] < 0.:return False
+        if params[7] > 1.:return False
+        return True
+    if densfunc is pdens.triaxial_broken_angle_zvecpa_plusexpdisk:
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.:return False
+        if params[2] < 0.:return False
+        if params[3] < 0.1:return False
+        if params[3] > 1.:return False
+        if params[4] < 0.1:return False
+        if params[4] > 1.:return False
+        if params[5] <= 0.:return False
+        if params[5] >= 1.:return False
+        if params[6] <= 0.:return False
+        if params[6] >= 1.:return False
+        if params[7] <= 0.:return False
+        if params[7] >= 1.:return False
+        if params[8] < 0.:return False
+        if params[8] > 1.:return False
+        return True
+#     if densfunc is pdens.triaxial_einasto_zvecpa:
+#         if params[0] < 0. and alpha_positive:return False
+#         if params[1] < 0.5:return False
+#         if params[2] < 0.1:return False
+#         if params[2] > 1.:return False
+#         if params[3] < 0.1:return False
+#         if params[3] > 1.:return False
+#         if params[4] <= 0.:return False
+#         if params[4] >= 1.:return False
+#         if params[5] <= 0.:return False
+#         if params[5] >= 1.:return False
+#         if params[6] <= 0.:return False
+#         if params[6] >= 1.:return False
+#         if params[7] <= 0.:return False
+#         if params[7] >= 1.:return False
+#         return True
+#     if densfunc is pdens.triaxial_einasto_zvecpa_plusexpdisk:
+#         if params[0] < 0. and alpha_positive:return False
+#         if params[1] < 0.5:return False
+#         if params[2] < 0.1:return False
+#         if params[2] > 1.:return False
+#         if params[3] < 0.1:return False
+#         if params[3] > 1.:return False
+#         if params[4] <= 0.:return False
+#         if params[4] >= 1.:return False
+#         if params[5] <= 0.:return False
+#         if params[5] >= 1.:return False
+#         if params[6] <= 0.:return False
+#         if params[6] >= 1.:return False
+#         if params[7] <= 0.:return False
+#         if params[7] >= 1.:return False
+#         if params[8] <= 0.:return False
+#         if params[8] >= 1.:return False
+        return True
     return True
 
 ### Plotting
