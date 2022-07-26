@@ -103,8 +103,11 @@ def parse_config_dict(cdict,keyword):
             selection function grid
         LOGG_MIN (float) - Minimum log(g) for fitting sample
         LOGG_MAX (float) - Maximum log(g) for fitting sample
-        FEH_MIN (float) - Minimum [Fe/H] for fitting sample
-        FEH_MAX (float) - Maximum [Fe/H] for fitting sample
+        FEH_MIN (float) - Minimum [Fe/H] for whole-halo fitting sample
+        FEH_MAX (float) - Maximum [Fe/H] for whole-halo fitting sample
+        FEH_MIN_GSE (float) - Minimum [Fe/H] for GSE fitting sample
+        FEH_MAX_GSE (float) - Maximum [Fe/H] for GSE fitting sample
+        M_MIN (float) - Minimum mass for isochrone-based calculations
         NPROCS (int) - Number of processors to use when multiprocessing
         
     Args:
@@ -127,7 +130,7 @@ def parse_config_dict(cdict,keyword):
         assert _keyword[0] in cdict, 'Keyword '+_keyword[0]+' not in cdict'
     
     float_kws =  ['RO','VO','ZO','DMOD_MIN','DMOD_MAX','LOGG_MIN','LOGG_MAX',
-                  'FEH_MIN','FEH_MAX','FEH_MIN_GSE','FEH_MAX_GSE']
+                  'FEH_MIN','FEH_MAX','FEH_MIN_GSE','FEH_MAX_GSE','M_MIN']
     int_kws =    ['NPROCS','NDMOD']
     string_kws = ['HOME_DIR','BASE_DIR','APOGEE_DR','APOGEE_RESULTS_VERS',
                   'GAIA_DR']
