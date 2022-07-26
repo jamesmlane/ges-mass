@@ -15,10 +15,11 @@ __author__ = "James Lane"
 ### Imports
 import os
 import numpy as np
+import warnings
 import isodist
 from isodist import Z2FEH,FEH2Z
-import tqdm
-from scipy.interpolate import interp1d
+import scipy.interpolate
+import scipy.integrate
 
 # ----------------------------------------------------------------------------
 
@@ -158,6 +159,91 @@ def iso_keys(iso_type):
 
 # ----------------------------------------------------------------------------
 
+### Isochrone weights
+
+def calculate_weights_imf(iso, weights_key='weights_imf', imf=None, m_min=0.,
+                          norm=1., diff=False, diff_key='weights_imf', 
+                          overwrite=False, iso_type='parsec1.2'):
+    '''calculate_weights_imf:
+    
+    Calculate 'weights_imf' field for isochrones. Can either be done by 
+    using an IMF to calculate the weight between two mass points in the 
+    isochrone, or by taking the difference between an existing cumulative IMF 
+    field in the isochrone (e.g. 'int_IMF' for Parsec1.2 isochrones).
+    
+    Weights are calculated for each unique pair of Zini, logAge
+    
+    Args:
+        iso (np structured array) - Isochrone array. Will be appended to
+        weights_key (string) - Key name for the new weights field
+            [default 'weights_imf']
+        imf (callable) - IMF function to calculate the weights for each mass 
+            interval [default None]
+        m_min (float) - Initial mass to integrate the first mass point
+        norm (float) - Normalizing factor to apply divide weights [default 1.]
+        diff (bool) - Calculate the weights by differencing an existing 
+            field in the isochrone? [default False]
+        diff_key (string) - If diff=True which field in the isochrone to 
+            use for differencing [default None]
+        overwrite (bool) - If the array field already exists overwrite?
+            [default False]
+        iso_type (string) - Isochrone type for keys [default 'parsec1.2']
+    
+    Returns:
+        iso (np structured array) - Isochrone array with weights field appended
+    '''
+    # Checks
+    assert callable(imf) or diff, 'Either imf must be a callable or diff=True'
+    
+    # Isochrone keys
+    _iso_keys = iso_keys(iso_type)
+    age_key = _iso_keys['logage']
+    z_key = _iso_keys['z_initial']
+    mass_key = _iso_keys['mass_initial']
+    
+    # Unique metallicity and ages
+    unique_zini = np.unique(iso[z_key])
+    unique_age = np.unique(iso[age_key])
+    
+    # Make the weights
+    w_imf = np.zeros(len(iso), dtype=[(weights_key,'f8'),])
+    for i in range(len(unique_zini)):
+        for j in range(len(unique_age)):
+            print('doing metallicity '+str(i+1)+'/'+str(len(unique_zini)),
+                  end='\r')
+            iso_mask = np.where((iso['Zini']==unique_zini[i]) &\
+                                (iso['logAge']==unique_age[j]))[0]
+            if diff:
+                w_imf[iso_mask[1:]] = np.diff(iso[iso_mask][diff_key])/norm
+                w_imf[iso_mask[0]] = iso[iso_mask[0]][diff_key]/norm
+            else:
+                for k in range(len(iso_mask)):
+                    if iso[iso_mask[0]][mass_key]<m_min:
+                        warnings.warn('First mass entry in isochrone for '+\
+                                      'z='+str(unique_zini[i])+' and '+\
+                                      'logAge='+str(unique_age[j])+' is '+\
+                                      'less than m_min.')
+                    
+                    if k == 0:
+                        w_imf[iso_mask[k]] = scipy.integrate.quad(imf, m_min, 
+                            iso[iso_mask[k]][mass_key])[0]/norm
+                    else:
+                        w_imf[iso_mask[k]] = scipy.integrate.quad(
+                            imf, iso[iso_mask[k-1]][mass_key], 
+                            iso[iso_mask[k]][mass_key])[0]/norm
+    print('')
+    # Check whether or not the field that's being appended already exists
+    if weights_key in iso.dtype.names:
+        if overwrite:
+            iso[weights_key] = w_imf[weights_key]
+        else:
+            warnings.warn('Field already present in iso, not overwriting')
+    else:
+        iso = np.lib.recfunctions.merge_arrays((iso,w_imf), flatten=True)
+    return iso
+
+# ----------------------------------------------------------------------------
+
 ### Isochrone sampling
 
 def sampleiso(N, iso, return_inds=False, return_iso=False, lowfeh=True):
@@ -190,8 +276,8 @@ def sampleiso(N, iso, return_inds=False, return_iso=False, lowfeh=True):
         jkey, hkey, kkey = 'J', 'H', 'K'
     weights = iso['deltaM']*(10**(iso[logagekey]-9)/iso[zkey])
     sort = np.argsort(weights)
-    tinter = interp1d(np.cumsum(weights[sort])/np.sum(weights), 
-                      range(len(weights[sort])), kind='linear')
+    tinter = scipy.interpolateinterp1d(np.cumsum(weights[sort])/np.sum(weights), 
+                                       range(len(weights[sort])), kind='linear')
     randinds = np.round(tinter(np.random.rand(N))).astype(np.int64)
     if return_inds:
         return randinds, iso[jkey][sort][randinds], iso[hkey][sort][randinds], iso[kkey][sort][randinds]

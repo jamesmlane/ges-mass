@@ -181,7 +181,7 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
     # Determine the isochrone mass fraction factors for each field
     print('Calculating isochrone factors')
     for i in range(nfield):
-        # The mass ratio mask is for all stars considered
+        # The mass ratio mask is for all stars considered 
         massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
                             (Z2FEH(iso['Zini']) < feh_range[1]) &\
                             (iso['logAge'] >= 10) &\
