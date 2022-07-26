@@ -408,12 +408,16 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
     # Apply the kinematic selection function to the effective selection function
     keffSF_grid = effSF_grid*kSF_grid
     
+    kSF_filename = kSF_dir+'ksf_grid_'+selec_spaces_suffix+'.dat'
+    print('Saving kinematic selection function grid to '+kSF_filename)
+    with open(kSF_filename,'wb') as f:
+        pickle.dump(kSF_grid,f)
+        
     keffSF_filename = kSF_dir+'apogee_keffSF_grid_inclArea_'\
                              +selec_spaces_suffix+'.dat'
     print('Saving kinematic effective selection function to '+keffSF_filename)
     with open(keffSF_filename,'wb') as f:
         pickle.dump(keffSF_grid,f)
-    ##wi
     
     # Make plots 
     if make_SF_plots:
@@ -481,3 +485,20 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
     ##fi
     return keffSF_grid
 #def
+
+def get_globular_cluster_fields():
+    '''get_globular_cluster_fields:
+    
+    Return a list of APOGEE LOCATIONS_IDs for fields with globular cluster 
+    stars in them. These should not be considered for modelling.
+    
+    Args:
+        None
+    
+    Returns:
+        gc_locid (list) - List of APOGEE LOCATION_IDs for fields with globular 
+            cluster stars in them
+    '''
+    gc_locid = [2011,4353,5093,5229,5294,5295,5296,5297,5298,5299,5300,5325,
+                5328,5329,5438,5528,5529,5744,5801]
+    return gc_locid
