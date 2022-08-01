@@ -724,6 +724,7 @@ def get_globular_cluster_fields():
         gc_locid (list) - List of APOGEE LOCATION_IDs for fields with globular 
             cluster stars in them
     '''
-    gc_locid = [2011,4353,5093,5229,5294,5295,5296,5297,5298,5299,5300,5325,
-                5328,5329,5438,5528,5529,5744,5801]
+    gc_locid = [2011, 2247, 4260, 5295, 5299, 5300, 5328, 5329, 5801]
+    # gc_locid = [2011,4353,5093,5229,5294,5295,5296,5297,5298,5299,5300,5325,
+    #             5328,5329,5438,5528,5529,5744,5801]
     return gc_locid
