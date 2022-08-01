@@ -165,16 +165,12 @@ def fit_smooth_spline(x,y,s=0):
             leftInd+=1
         else:
             break
-        ##ie
-    ##wh
     while True:
         if x[rightInd] == 0:
             where_y_good[rightInd] = False
             rightInd-=1
         else:
             break
-        ##ie
-    ##wh
     
     smooth_spl = interpolate.UnivariateSpline(x[where_y_good], y[where_y_good], 
                                               k=3, s=s, ext=1)
@@ -183,7 +179,7 @@ def fit_smooth_spline(x,y,s=0):
 
 def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions, 
     halo_selection_dict, phi0,
-    lblocids_pointing, ds_individual, fs, out_dir, gaia_apogee_dir, fig_dir, 
+    lblocids_pointing, ds_individual, fs, ksf_dir, fig_dir, 
     force_splines=False, make_spline_plots=False,n_spline_plots=50):
     '''make_completeness_purity_splines:
     
@@ -192,6 +188,7 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
     purity-distance splines. 
     
     Args:
+    
     
     Returns:
         None
@@ -210,8 +207,7 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
     completeness = np.zeros(n_locs)
     purity = np.zeros(n_locs)
     selec_spaces_suffix = '-'.join(selec_spaces)
-    spline_filename = out_dir+gaia_apogee_dir+'ksf_splines_'\
-                      +selec_spaces_suffix+'.pkl'
+    spline_filename = ksf_dir+'ksf_splines_'+selec_spaces_suffix+'.pkl'
     
     if make_spline_plots in ['completeness','both']:
         completeness_fig_dir = fig_dir+selec_spaces_suffix+'/completeness/'
@@ -219,7 +215,6 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
     if make_spline_plots in ['purity','both']:
         purity_fig_dir = fig_dir+selec_spaces_suffix+'/purity/'
         os.makedirs(purity_fig_dir, exist_ok=True)
-    ##fi
     
     # Calculate purity and completeness at each KSF location
     print('Calculating completeness and purity')
@@ -243,16 +238,13 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
                     lowbeta_x, lowbeta_y, this_selection, factor=[1.,1.])
                 highbeta_selec = highbeta_selec & pplot.is_in_scaled_selection(
                     highbeta_x, highbeta_y, this_selection, factor=[1.,1.])
-            ##ie
-        ###j
+                
         if np.sum(highbeta_selec) == 0:
             purity[i] = 0
         else:
             completeness[i] = np.sum(highbeta_selec)/n_samples
             purity[i] = np.sum(highbeta_selec)/(np.sum(highbeta_selec)\
                                                 +np.sum(lowbeta_selec))
-        ##ie
-    ###i
     
     # Create the purity and completeness splines for each location
     if not os.path.exists(spline_filename) or force_splines:
@@ -275,7 +267,7 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
             spl_purity = fit_smooth_spline(spl_xs, spl_ps,s=spl_s)
             spl_completeness_arr.append(spl_completeness)
             spl_purity_arr.append(spl_purity)
-        ###i
+
         # Save splines
         print('Saving splines to '+spline_filename)
         with open(spline_filename,'wb') as f:
