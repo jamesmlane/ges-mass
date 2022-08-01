@@ -23,7 +23,9 @@ from matplotlib import pyplot as plt
 import dill as pickle
 from galpy import orbit
 from galpy import potential
-import pdb
+from galpy.util import multi as galpy_multi
+from astropy import table
+import urllib
 
 from . import plot as pplot
 from . import util as putil
@@ -485,6 +487,235 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
     ##fi
     return keffSF_grid
 #def
+
+# -----------------------------------------------------------------------------
+
+# Harris catalog and globular cluster stuff
+
+def get_harris_catalog( download_catalog=True, filename=None,
+    download_url='http://physwww.mcmaster.ca/~harris/mwgc.dat',
+    output_filename = './mwgc.FIT', return_catalog=False):
+    '''get_harris_catalog:
+    
+    Read and parse the Harris catalog of globular clusters and return it as an 
+    Astropy table object
+    
+    Args:
+        download_catalog (bool) - Download the catalog from the web? [True]
+        filename (str) - If not downloading from web then read the filename [None]
+        download_url (str) - URL to get the catalog from
+        output_filename (str) = Filename to output Harris catalog. If None 
+            then don't output catalog.
+        return_catalog (bool) = Return the catalog as a variable [False]
+        
+    Returns:
+        table (Astropy Table) - Harris catalog in table format
+    '''
+
+    # Get the catalog via download if requested
+    if download_catalog:
+        print('Downloading '+download_url+' ...')
+        filename = './mwgc_temp.dat'
+        urllib.request.urlretrieve(download_url, filename)
+        
+    # Open file
+    with open(filename, "r") as fp:
+        contents = fp.readlines()
+    os.system('rm -f '+filename)
+
+    # Separate into 3 parts
+    parts = _separate_harris_catalog(contents)
+    
+    # Define the columns
+    columns2 = ("FE_H", "WT", "E(B-V)", "V_HB", "DISTANCE_MOD_V", "V_T", "M_V",
+        "U-B", "B-V", "V-R", "V-I", "SPEC_TYPE", "ELLIPTICITY")
+    columns3 = ("V_HELIO", "V_HELIO_ERR", "V_LSR", "SIGMA_V", "SIGMA_V_ERR",
+        "CONC", "R_CONC", "R_HALF", "MU_V", "RHO_0", "LOG_T_RELAX_CORE", 
+        "LOG_T_RELAX_MEDIAN")
+
+    char_indices2 = [
+        (13, 18, float),
+        (19, 21, int),
+        (24, 28, float),
+        (29, 34, float),
+        (35, 40, float),
+        (41, 46, float),
+        (47, 53, float),
+        (55, 60, float),
+        (61, 66, float),
+        (67, 72, float),
+        (73, 78, float),
+        (79, 85, str),
+        (86, 90, float)
+    ]
+    char_indices3 = [
+        (12, 18, float),
+        (20, 24, float),
+        (25, 32, float),
+        (36, 42, float),
+        (43, 48, float),
+        (49, 53, float),
+        (59, 63, float),
+        (65, 70, float),
+        (72, 77, float),
+        (79, 84, float),
+        (86, 91, float),
+        (92, None, float)
+    ]
+    
+    # Read the first part
+    
+    # Read each part
+    part1 = list(map(_parse_harris_catalog_line_part1, parts[0]))
+    part2 = _parse_harris_catalog_part(parts[1], columns2, char_indices2)
+    part3 = _parse_harris_catalog_part(parts[2], columns3, char_indices3)
+
+    joined_parts = []
+    for i, (cluster_id, part1_data) in enumerate(part1):
+
+        assert cluster_id == part2[i][0]
+        assert cluster_id == part3[i][0]
+
+        joined_data = { "ID": cluster_id }
+        joined_data.update(part1_data)
+        joined_data.update(part2[i][1])
+        joined_data.update(part3[i][1])
+
+        joined_parts.append(joined_data)
+
+    tab = table.Table(rows=joined_parts)
+    
+    if output_filename is not None:
+        tab.write(output_filename, overwrite=True)
+    if return_catalog:
+        return tab
+
+
+def _separate_harris_catalog(contents):
+    '''separate_harris_catalog:
+    
+    Separate the line-by-line contents of the Harris catalog into the three
+    prescribed parts. Each section begins with '   ID' and ends with a blank 
+    line.
+    
+    Args:
+        contents (list) List of lines corresponding to the read catalog
+        
+    Returns:
+        parts (arr) Array of 3 sections of the catalog
+    '''
+    
+    # Loop over each line, find the indices where the parts begin and end
+    in_part, line_indices = False, []
+    for i, line in enumerate(contents):
+        
+        # If we just saw a '   ID' then ignore the next blank line, which 
+        # separates the column headers from the first line of data
+        if len(line_indices) > 0 and line_indices[-1] == i + 1:
+            continue
+        
+        # Find the lines that begin and end the data columns
+        if line.lstrip().startswith('ID'):
+            line_indices.append(i + 2)
+            in_part = True # Signal that we are within a data part
+        elif in_part and len(line.strip()) == 0:
+            line_indices.append(i)
+            in_part = False # Signal that we have left a data part
+
+    # line_indices contains start, end indices for each part in a flat list.
+    # Now send back separate parts.
+    N = int(len(line_indices)/2) # Should always be 3 parts, but whatever.
+    parts = []
+    for i in range(N):
+        start_index, end_index = line_indices[2*i:2*i+2]
+        parts.append(contents[ start_index : end_index ])
+
+    return parts
+
+
+def _parse_harris_catalog_part(part, columns, char_indices):
+    '''_parse_harris_catalog_part:
+    
+    Read part of the Harris catalog
+    
+    Args:
+        part (list) - List of part lines
+        columns (list) - List of column names
+        char_indices (list) - List of length-3 tuples corresponding to the 
+            start, end, and data type of each column of data
+    
+    Returns:
+        
+    '''
+    # Output list
+    parts_out = []
+    
+    # Loop over each line
+    for line in part:
+        
+        # Get the ID first
+        cluster_id = line[:13].strip()
+        
+        # Get the rest of the data
+        data_columns = _parse_harris_catalog_line(line, char_indices)
+        
+        # zip into a dictionary
+        assert len(columns) == len(data_columns)
+        data = dict(zip(columns, data_columns))
+        
+        parts_out.append( (cluster_id,data) )
+    
+    return parts_out
+
+
+def _parse_harris_catalog_line(line, char_indices):
+    '''_parse_harris_catalog_line:
+    
+    Args:
+        line (string) - Line of the catalog
+        char_indices (list) - List of length-3 tuples corresponding to the 
+            start, end, and data type of each column of data
+        
+    Returns:
+        data_columns (list) - Output parsed into list
+        
+    '''
+
+    data_columns = []
+    for si, ei, kind in char_indices:
+        try:
+            _ = kind(line[si:ei].strip())
+        except:
+            _ = np.nan
+        data_columns.append(_)
+    return data_columns
+
+
+def _parse_harris_catalog_line_part1(line):
+    '''_parse_harris_catalog_line_part1:
+    
+    Part 1 of the Harris catalog is special
+    
+    Args:
+        line (str) - Line of part 1
+    
+    Returns:
+        data (list) - Line parsed into cluster id and data
+    '''
+
+    columns = ("NAME", "RA", "DEC", "GLON", "GLAT", "R_SUN", "R_GC", "X", "Y", "Z")
+
+    # Get the ID and name first.
+    cluster_id, cluster_name = (line[:12].strip(), line[12:25])
+
+    _ = line[25:].split()
+    ra, dec = ":".join(_[:3]), ":".join(_[3:6])
+    data_columns = [cluster_name.strip(), ra, dec] + list(map(float, _[6:]))
+
+    assert len(columns) == len(data_columns)
+    data = dict(zip(columns, data_columns))
+    return (cluster_id, data)
+
 
 def get_globular_cluster_fields():
     '''get_globular_cluster_fields:
