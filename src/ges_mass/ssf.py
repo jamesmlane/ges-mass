@@ -34,7 +34,7 @@ from . import util as putil
 
 # Define the function that will take all input and calculate results in parallelized manner
 def calc_kinematics_parallel(ncores,this_df,n_samples,orbs_locs,do_perturb_orbs,
-                             gaia_input,allstar_input,deltas,aAS,ro,vo,zo):
+                             gaia_input,allstar_input,deltas,aAS,pot,ro,vo,zo):
     '''calc_kinematics_parallel:
     
     Calculate the kinemaitcs according to a DF. Returns 
@@ -50,6 +50,7 @@ def calc_kinematics_parallel(ncores,this_df,n_samples,orbs_locs,do_perturb_orbs,
         allstar_input
         deltas
         aAS
+        pot
         ro
         vo
         zo
@@ -58,9 +59,9 @@ def calc_kinematics_parallel(ncores,this_df,n_samples,orbs_locs,do_perturb_orbs,
         results (array) - Array of [orbs,eELz,accs]
     '''
      
-    lambda_func = (lambda x: calc_kinematics_on_loc(this_df,n_samples,
+    lambda_func = (lambda x: calc_kinematics_one_loc(this_df,n_samples,
         orbs_locs[x], do_perturb_orbs,gaia_input[[x,]], allstar_input[[x,]],
-        deltas[x], aAS, ro, vo, zo))
+        deltas[x], aAS, pot, ro, vo, zo))
     
     n_calls = len(orbs_locs)
     print('Using '+str(ncores)+' cores')
@@ -76,7 +77,7 @@ def calc_kinematics_parallel(ncores,this_df,n_samples,orbs_locs,do_perturb_orbs,
 #def
 
 def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
-                    allstar_input,delta,aAS,ro,vo,zo):
+                    allstar_input,delta,aAS,pot,ro,vo,zo):
     '''calc_kinematics_one_loc:
     
     Calculate the kinemaics for a single location
@@ -90,6 +91,7 @@ def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
         allstar_input
         delta
         aAS
+        pot
         ro
         vo
         zo
@@ -113,8 +115,8 @@ def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
     ecc,_,_,_ = aAS.EccZmaxRperiRap(orbs_samp, delta=delta, 
                                     use_physical=True, c=True)
     accs = aAS(orbs_samp, delta=delta, c=True)
-    E = orbs_samp.E(pot=mwpot)
-    Lz = orbs_samp.Lz(pot=mwpot)
+    E = orbs_samp.E(pot=pot)
+    Lz = orbs_samp.Lz()
 
     try:
         ecc = ecc.value
