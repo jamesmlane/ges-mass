@@ -859,7 +859,7 @@ def triaxial_single_trunc_zvecpa_plusexpdisk(R,phi,z,
     diskdens = np.exp(-hr*(R-_ro)-hz*np.fabs(original_z))
     diskdens_sun = np.exp(-hr*(_ro-_ro)-hz*np.fabs(_zo))
     dens = np.zeros(len(r_e))
-    dens[r_e < params[1]] = (r_e[r_e < params[2]])**(-params[0])
+    dens[r_e < params[1]] = (r_e[r_e < params[1]])**(-params[0])
     dens[r_e > params[1]] = 0
     sundens = (r_e_sun)**(-params[0])
     if split:
