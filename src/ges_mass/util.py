@@ -19,9 +19,12 @@ import copy
 from astropy import units as apu
 from astropy import coordinates
 from galpy import orbit
+from galpy import actionAngle as aA
 import apogee.tools as apotools
 import apogee.tools.read as apread
 import pdb
+
+from . import plot as pplot
 
 # ----------------------------------------------------------------------------
 
@@ -476,8 +479,9 @@ def trim_gaia_allstar_input(gaia_input,allstar_input):
                    'parallax_pmra_corr',
                    'parallax_pmdec_corr',
                    'pmra_pmdec_corr',
-                   'radial_velocity',
-                   'radial_velocity_error'
+                   # not in edr3, and not really needed
+                   # 'radial_velocity',
+                   # 'radial_velocity_error'
                    ]
     allstar_fields = ['APOGEE_ID',
                       'FIELD',
@@ -658,3 +662,166 @@ def swap_in_edr3_distances_to_dr16(allstar_dr16,allstar_dr17=None,
         return allstar_dr16_new, dr17_index
     else:
         return allstar_dr16_new
+    
+
+def calculate_accs_eELzs_orbextr_Staeckel(orbs,pot,aAS,):
+    '''calculate_accs_eELzs_orbextr:
+    
+    Calculate actions, eccentricity, obital extrema for an orbit object using 
+    the Staeckel approximation where required. Won't work for other 
+    action-angle objects
+    
+    Args:
+        orbs (galpy.orbit.Orbit) - Orbits
+        pot (galpy.potential.Potential) - Potential instance
+        aAS (galpy.aA) - Action-angle Staeckel instance, should correspond
+            to pot
+    
+    Returns:
+        deltas (array) - Staeckel deltas
+        eELz (3xN array) - eccentricity, Energy, Lz
+        accs (3xN array) - Actions: jR, Lz, jz
+        orbextr (3xN array) - Orbital extrema: zmax, pericenter, apocenter
+    '''
+    try:
+        ro = pot._ro
+        vo = pot._vo
+    except AttributeError:    
+        ro = pot[0]._ro
+        vo = pot[0]._vo
+    assert ro==aAS._ro and vo==aAS._vo, 'ro,vo from pot do not match aAS'
+    assert ro==orbs._ro and vo==orbs._vo, 'ro,vo from pot do not match orbs'
+    
+    # Deltas
+    deltas = aA.estimateDeltaStaeckel(pot,orbs.R(),orbs.z(),no_median=True)
+    if isinstance(deltas,apu.quantity.Quantity): deltas=deltas.value/ro
+    
+    # Orbital extrema
+    ecc,zmax,rperi,rapo = aAS.EccZmaxRperiRap(orbs,deltas=deltas,
+                                              use_physical=True,c=True)
+    
+    # Actions
+    accs_freqs = aAS.actionsFreqs(orbs, delta=deltas, use_physical=True, c=True)
+    
+    
+    E = orbs.E(pot=pot).value
+    ecc = ecc.value
+    zmax = zmax.value
+    rperi = rperi.value
+    rapo = rapo.value
+    jr = accs_freqs[0].value
+    Lz = accs_freqs[1].value
+    jz = accs_freqs[2].value
+    
+    eELzs = np.array([ecc,E,Lz])
+    accs = np.array([jr,Lz,jz])
+    orbextr = np.array([zmax,rperi,rapo])
+        
+    return deltas,eELzs,accs,orbextr
+
+def orbit_kinematics_from_df_samples(orbs,dfs,mixture_arr=None,ro=None,vo=None):
+    '''orbit_kinematics_from_df_samples:
+    
+    Use galpy.df instances to draw velocity samples for orbits.Orbit instance 
+    which doesn't otherwise have velocities (since apomock only gives 
+    positions for example)
+    
+    Args:
+        orbs (orbit.Orbit) - Input orbits, no velocities
+        df (galpy.df) - DFs, can be list of multiple
+        mixture_arr (list) - List of shape df
+    
+    Returns:
+        orbs (orbit.Orbit) - Output orbits with sampled velocities
+    '''
+    if not ro: ro=orbs._ro
+    if not vo: vo=orbs._vo
+    
+    # Handle DF lists, mixture_arr
+    if not isinstance(dfs,list): dfs=[dfs,]
+    if mixture_arr is not None:
+        assert np.sum(mixture_arr)==1., 'mixture_arr elements must sum to 1'
+        assert len(mixture_arr)==len(dfs), 'mixture_arr must be same shape as df'
+    
+    # Create output vxvv, do some sanity checks
+    n_orbs = len(orbs)
+    vxvv = np.zeros((6,n_orbs))
+    
+    # If using mixture_arr, do random choice of orbits
+    if mixture_arr is not None:
+        rnp = np.random.default_rng()
+        df_inds = []
+        cand_inds = np.arange(0,n_orbs,dtype=int)
+        rnp.shuffle(cand_inds)
+        for i in range(len(dfs)):
+            if i+1==len(dfs):
+                df_inds.append(cand_inds)
+            else:
+                n_this_df = round(mixture_arr[i]*n_orbs)
+                inds_this_df,cand_inds = np.split(cand_inds,[n_this_df,])
+                df_inds.append(inds_this_df)
+                rnp.shuffle(cand_inds)
+    else:
+        df_inds = [np.arange(0,n_orbs,dtype=int),]
+    
+    # Loop over DFs and sample
+    for i in range(len(dfs)):
+        
+        inds = df_inds[i]
+        vorbs = dfs[i].sample(R=orbs.R(use_physical=False)[inds],
+                              z=orbs.z(use_physical=False)[inds],
+                              phi=orbs.phi(use_physical=False)[inds])
+        vxvv[:,inds] = vorbs._call_internal()
+    
+    orbs_out = orbit.Orbit(vxvv=vxvv.T,ro=ro,vo=vo)
+    
+    assert np.all(np.fabs(orbs_out.R(use_physical=False)/orbs.R(use_physical=False)-1)<1e-10)
+    assert np.all(np.fabs(orbs_out.z(use_physical=False)/orbs.z(use_physical=False)-1)<1e-10)
+    assert np.all(np.fabs(orbs_out.phi(use_physical=False)/orbs.phi(use_physical=False)-1)<1e-10)
+    
+    return orbs_out
+
+def kinematic_selection_mask(orbs,eELzs,accs,selection=None,space=None,phi0=0.):
+    '''kinematic_selection_mask:
+    
+    Make a mask based on a kinematic selection. Can supply string to 
+    make selection based on Lane+ 2022 selection dict ('vRvT','Toomre',
+    'ELz','JRLz','eLz','AD'). Otherwise can supply selection which takes the 
+    form: {'space': [['type', [xcen,ycen], [xscale,yscale],]}
+    
+    Supported values for 'space' are those from the default selection dict 
+    (see above). Supported values for 'type' are 'ellipse' right now.
+    
+    Args:
+        orbs (galpy.orbit.Orbit) - input orbits size N
+        eELzs (array) - eELzs array of shape (3,N), eccentricity, Energy, Lz
+        accs (array) - actions array of shape (3,N), jR, Lz, jz
+        selection (dict) - selection dictionary, see above
+        space (str) - Kinematic space to use Lane+2022 selection
+        phi0 (float) - potential at infinity
+    
+    Returns:
+        kmask (bool array) - Boolean mask of same shape as inputs
+    '''
+    assert space or selection, 'Must declare selection= or space='
+    if space: assert isinstance(space,str), 'space must be string, not arr'
+    if selection: 
+        assert isinstance(selection,dict), 'selection must be dict'
+        # Assume one space in selection
+        space = list(selection.keys())[0]
+    else:
+        # Lane+ 2022
+        selection = {'vRvT':   [ ['ellipse', [290,0], [110,35]], 
+                                 ['ellipse', [-290,0], [110,35]] ],
+                     'Toomre': [ ['ellipse', [0,300], [35,120]], ],
+                     'ELz':    [ ['ellipse', [0,-1], [300,0.5]], ],
+                     'JRLz':   [ ['ellipse', [0,45], [300,20]], ],
+                     'eLz':    [ ['ellipse', [0,1], [500,0.025]], ],
+                     'AD':     [ ['ellipse', [0,-1], [0.08,0.3]], ]
+                     }    
+    
+    xs,ys = pplot.get_plottable_data( [orbs,], [eELzs,], 
+        [accs,], np.array([1,]), space, phi0=phi0, 
+        absolute=True)
+        
+    return pplot.is_in_scaled_selection(xs, ys, selection[space]) 
