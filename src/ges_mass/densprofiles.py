@@ -30,17 +30,36 @@ def normalize_parameters(params,model):
     Returns:
         params (list) - Normalized density function parameters
     '''
-    if model.__name__ == 'triaxial_single_angle_zvecpa':
+    if model.__name__ == 'spherical':
+        params_out = [params[0],]
+    if 'triaxial_single_angle_zvecpa' in model.__name__:
         # params are [alpha,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
-        params_out = [params[0],params[1],params[2],params[3]/(2*np.pi),
-                      (params[4]+1.)/2.,params[5]/np.pi]
-    if model.__name__ == 'triaxial_single_cutoff_zvecpa_plusexpdisk':
-        # params are [alpha,beta,p,q,theta,eta,pa,fdisc
+        params_out = np.array([params[0], params[1], params[2],
+                               params[3]/(2*np.pi), (params[4]+1.)/2., 
+                               params[5]/np.pi])
+    if 'triaxial_single_cutoff_zvecpa' in model.__name__:
+        # params are [alpha,beta,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
-        params_out = [params[0],params[1],params[2],params[3],
-                      params[4]/(2*np.pi),(params[5]+1)/2.,params[6]/np.pi,
-                      params[7]]
+        params_out = np.array([params[0], params[1], params[2], params[3],
+                               params[4]/(2*np.pi), (params[5]+1.)/2., 
+                               params[6]/np.pi])
+    if 'triaxial_broken_angle_zvecpa' in model.__name__:
+        # params are [alpha_in,alpha_out,beta,p,q,theta,eta,pa]
+        # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
+        params_out = np.array([params[0], params[1], params[2], params[3], 
+                               params[4], params[5]/(2*np.pi), 
+                               (params[6]+1.)/2., params[7]/np.pi])
+    if 'triaxial_single_trunc_zvecpa' in model.__name__:
+        # params are [alpha,beta,p,q,theta,eta,pa]
+        # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
+        params_out = np.array([params[0], params[1], params[2], params[3],
+                               params[4]/(2*np.pi), (params[5]+1.)/2., 
+                               params[6]/np.pi])
+        
+    if 'plusexpdisk' in model.__name__:
+        # Add the disk contamination fraction, assume it's the last parameter
+        params_out = np.concatenate((params_out,params[-1]))
         
     return params_out
 
@@ -56,17 +75,36 @@ def denormalize_parameters(params,model):
     Returns:
         params (list) - Density function parameters
     '''
-    if model.__name__ == 'triaxial_single_angle_zvecpa':
+    if model.__name__ == 'spherical':
+        params_out = [params[0],]
+    if 'triaxial_single_angle_zvecpa' in model.__name__:
         # params are [alpha,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
-        params_out = [params[0],params[1],params[2],params[3]*2*np.pi,
-                      params[4]*2.-1.,params[5]*np.pi]
-    if model.__name__ == 'triaxial_single_cutoff_zvecpa_plusexpdisk':
-        # params are [alpha,p,q,theta,eta,pa]
+        params_out = np.array([params[0], params[1], params[2],
+                               params[3]*(2*np.pi), (params[4]*2.-1.), 
+                               params[5]*np.pi])
+    if 'triaxial_single_cutoff_zvecpa' in model.__name__:
+        # params are [alpha,beta,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
-        params_out = [params[0],params[1],params[2],params[3],
-                      params[4]*2*np.pi,params[5]*2.-1.,params[6]*np.pi,
-                      params[7]]    
+        params_out = np.array([params[0], params[1], params[2], params[3],
+                               params[4]*(2*np.pi), (params[5]*2.-1.), 
+                               params[6]*np.pi])
+    if 'triaxial_broken_angle_zvecpa' in model.__name__:
+        # params are [alpha_in,alpha_out,beta,p,q,theta,eta,pa]
+        # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
+        params_out = np.array([params[0], params[1], params[2], params[3], 
+                               params[4], params[5]*(2*np.pi), 
+                               (params[6]*2.-1.), params[7]*np.pi])
+    if 'triaxial_single_trunc_zvecpa' in model.__name__:
+        # params are [alpha,beta,p,q,theta,eta,pa]
+        # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
+        params_out = np.array([params[0], params[1], params[2], params[3],
+                               params[4]*(2*np.pi), (params[5]*2.-1.), 
+                               params[6]*np.pi])
+        
+    if 'plusexpdisk' in model.__name__:
+        # Add the disk contamination fraction, assume it's the last parameter
+        params_out = np.concatenate((params_out,params[-1]))
         
     return params_out
 
