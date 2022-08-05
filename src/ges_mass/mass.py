@@ -203,18 +203,20 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
     if mass_int_type == 'cartesian_grid':
         print('Cartesian grid integration not supported, using spherical grid')
         mass_int_type = 'spherical_grid'
-    if mass_int_type == 'spherical_grid':
+    elif mass_int_type == 'spherical_grid':
         r_min,r_max = int_r_range
         n_edge_r,n_edge_theta,n_edge_phi = n_edge
         Rphizgrid,deltafactor = spherical_integration_grid(r_min,r_max,n_edge_r,
                                                      n_edge_theta,n_edge_phi)
+    else:
+        assert False, 'Must choose "spherical_grid" or "cartesian_grid"'
 
     # Calculate the mass
     print('Calculating mass')
     
     np.random.seed(seed)
-    samples_randind = samples[np.random.choice(len(samples),n_mass,
-                                               replace=False)]
+    mass_randind = np.random.choice(len(samples), n_mass, replace=False)
+    samples_randind = samples[mass_randind]
     # Parallel?
     if nprocs and nprocs > 1:
         # Batch computing?
@@ -240,7 +242,6 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                 results = p.starmap(_calc_mass_batch, _calc_mass_generator)
                 masses,facs = np.moveaxis(np.array(results),2,1).reshape(
                     samples_randind.shape[0],2).T
-            return masses, facs  
         # No batch computing
         else:
             print('Processing masses in parallel, no batching')
