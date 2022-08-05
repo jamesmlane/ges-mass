@@ -691,13 +691,17 @@ def domain_prior(densfunc, params):
         # alpha
         if params[0] < 0. and alpha_positive:return False
         return True
-    if densfunc is pdens.axisymmetric:
+    elif densfunc is pdens.spherical_cutoff:
+        # alpha, beta
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.:return False
+    elif densfunc is pdens.axisymmetric:
         # alpha, q
         if params[0] < 0. and alpha_positive:return False
         if params[1] < 0.1:return False
         if params[1] > 1.:return False
         return True
-    if densfunc is pdens.triaxial_norot:
+    elif densfunc is pdens.triaxial_norot:
         # alpha, p, q
         if params[0] < 0. and alpha_positive:return False
         if params[1] < 0.1:return False
@@ -705,21 +709,21 @@ def domain_prior(densfunc, params):
         if params[2] < 0.1:return False
         if params[2] > 1.:return False
         return True
-    if densfunc is pdens.triaxial_single_angle_aby:
-        # alpha, p, q, A, B, Y
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.1:return False
-        if params[1] > 10.:return False
-        if params[2] < 0.1:return False
-        if params[2] > 10.:return False
-        if params[3] < 0.:return False
-        if params[3] > 1.:return False
-        if params[4] < 0.:return False
-        if params[4] > 1.:return False
-        if params[5] < 0.:return False
-        if params[5] > 1.:return False
-        return True
-    if densfunc is pdens.triaxial_single_angle_zvecpa:
+    # if densfunc is pdens.triaxial_single_angle_aby:
+    #     # alpha, p, q, A, B, Y
+    #     if params[0] < 0. and alpha_positive:return False
+    #     if params[1] < 0.1:return False
+    #     if params[1] > 10.:return False
+    #     if params[2] < 0.1:return False
+    #     if params[2] > 10.:return False
+    #     if params[3] < 0.:return False
+    #     if params[3] > 1.:return False
+    #     if params[4] < 0.:return False
+    #     if params[4] > 1.:return False
+    #     if params[5] < 0.:return False
+    #     if params[5] > 1.:return False
+    #     return True
+    elif densfunc is pdens.triaxial_single_angle_zvecpa:
         # alpha, p, q, theta, eta, phi
         if params[0] < 0. and alpha_positive:return False
         if params[1] < 0.1:return False
@@ -733,7 +737,7 @@ def domain_prior(densfunc, params):
         if params[5] < 0.:return False
         if params[5] > 1.:return False
         return True
-    if densfunc is pdens.triaxial_single_cutoff_zvecpa:
+    elif densfunc is pdens.triaxial_single_cutoff_zvecpa:
         # alpha, beta, p, q, theta, eta, phi
         if params[0] < 0. and alpha_positive:return False
         if params[1] < 0.:return False
@@ -748,9 +752,10 @@ def domain_prior(densfunc, params):
         if params[6] <= 0.:return False
         if params[6] >= 1.:return False
         return True
-    if densfunc is pdens.triaxial_broken_angle_zvecpa:
+    elif densfunc is pdens.triaxial_broken_angle_zvecpa:
+        # alpha_in, alpha_out, beta, p, q, theta, eta, phi
         if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.:return False
+        if params[1] < 0. and alpha_positive:return False
         if params[2] < 0.:return False
         if params[3] < 0.1:return False
         if params[3] > 1.:return False
@@ -763,7 +768,22 @@ def domain_prior(densfunc, params):
         if params[7] <= 0.:return False
         if params[7] >= 1.:return False
         return True
-    if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk:
+    elif densfunc is pdens.triaxial_single_trunc_zvecpa:
+        # alpha, beta, p, q, theta, eta, phi
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.:return False
+        if params[2] < 0.1:return False
+        if params[2] > 1.:return False
+        if params[3] < 0.1:return False
+        if params[3] > 1.:return False
+        if params[4] <= 0.:return False
+        if params[4] >= 1.:return False
+        if params[5] <= 0.:return False
+        if params[5] >= 1.:return False
+        if params[6] <= 0.:return False
+        if params[6] >= 1.:return False
+        return True
+    elif densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk:
         # alpha, p, q, theta, eta, phi, fdisc
         if params[0] < 0. and alpha_positive:return False
         if params[1] < 0.1:return False
@@ -779,7 +799,7 @@ def domain_prior(densfunc, params):
         if params[6] < 0.:return False
         if params[6] > 1.:return False
         return True
-    if densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
+    elif densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
         # alpha, beta, p, q, theta, eta, phi, fdisc
         if params[0] < 0. and alpha_positive:return False
         if params[1] < 0.:return False
@@ -796,9 +816,9 @@ def domain_prior(densfunc, params):
         if params[7] < 0.:return False
         if params[7] > 1.:return False
         return True
-    if densfunc is pdens.triaxial_broken_angle_zvecpa_plusexpdisk:
+    elif densfunc is pdens.triaxial_broken_angle_zvecpa_plusexpdisk:
         if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.:return False
+        if params[1] < 0. and alpha_positive:return False
         if params[2] < 0.:return False
         if params[3] < 0.1:return False
         if params[3] > 1.:return False
@@ -812,6 +832,23 @@ def domain_prior(densfunc, params):
         if params[7] >= 1.:return False
         if params[8] < 0.:return False
         if params[8] > 1.:return False
+        return True
+    elif densfunc is pdens.triaxial_single_trunc_zvecpa_plusexpdisk:
+        # alpha, beta, p, q, theta, eta, phi, fdisc
+        if params[0] < 0. and alpha_positive:return False
+        if params[1] < 0.:return False
+        if params[2] < 0.1:return False
+        if params[2] > 1.:return False
+        if params[3] < 0.1:return False
+        if params[3] > 1.:return False
+        if params[4] <= 0.:return False
+        if params[4] >= 1.:return False
+        if params[5] <= 0.:return False
+        if params[5] >= 1.:return False
+        if params[6] <= 0.:return False
+        if params[6] >= 1.:return False
+        if params[7] < 0.:return False
+        if params[7] > 1.:return False
         return True
 #     if densfunc is pdens.triaxial_einasto_zvecpa:
 #         if params[0] < 0. and alpha_positive:return False
@@ -846,8 +883,10 @@ def domain_prior(densfunc, params):
 #         if params[7] >= 1.:return False
 #         if params[8] <= 0.:return False
 #         if params[8] >= 1.:return False
+#         return True
+    else:
+        warnings.warn('Domain prior not defined for this density profile')
         return True
-    return True
 
 ### Plotting
 
