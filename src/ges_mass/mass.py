@@ -261,7 +261,6 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                                       initargs=(counter,)) as p:
                 results = p.starmap(_calc_mass, _calc_mass_generator)
                 masses,facs = np.array(results).T
-            return masses, facs
     # Serial        
     else:
         print('Processing masses in serial')
@@ -300,7 +299,8 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                 masses[i] =  np.sum(denstxyz*deltafactor)
             facs[i] = fac
             # Also maybe some sort of actual integrator?
-        return masses, facs
+            
+    return masses, facs, samples_randind
 
 def _calc_mass_multiprocessing_init(args):
     '''_calc_mass_multiprocessing_init:
