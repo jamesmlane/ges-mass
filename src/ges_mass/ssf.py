@@ -41,19 +41,20 @@ def calc_kinematics_parallel(ncores,this_df,n_samples,orbs_locs,do_perturb_orbs,
     orbs, eELz, accs
     
     Args:
-        ncores
-        this_df
-        n_samples
-        orbs_locs
-        do_perturb_orbs
-        gaia_input
-        allstar_input
-        deltas
-        aAS
-        pot
-        ro
-        vo
-        zo
+        ncores (int) - Number of processors to use
+        this_df (df instance) - DF to use to calculate kinematics
+        n_samples (int) - Number of samples to draw
+        orbs_locs (orbit.Orbit instance) - Orbit object representing location 
+            to draw samples
+        do_perturb_orbs (bool) - Perturb the orbits by an amount equal to 
+            the uncertainty from nearby data
+        gaia_input (array) - Gaia data
+        allstar_input (array) - APOGEE allstar data
+        deltas (array) - Staeckel deltas for location
+        aAS (actionAngleStaeckel instance) - Staeckel action angle object 
+            to calculate kinematic quantities
+        pot (potential.Potential instance) - Milky Way potential
+        ro,vo,zo (float) - Galpy scales and Sun position
     
     Returns:
         results (array) - Array of [orbs,eELz,accs]
@@ -83,34 +84,31 @@ def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
     Calculate the kinemaics for a single location
     
     Args:
-        df
-        n_samples
-        orbs_locs
-        do_perturb_orbs
-        gaia_input
-        allstar_input
-        delta
-        aAS
-        pot
-        ro
-        vo
-        zo
+        df (df object) - DF to use to calculate kinematics
+        n_samples (int) - Number of samples to draw
+        orbs_locs (orbit.Orbit instance) - Orbit object representing location 
+            to draw samples
+        do_perturb_orbs (bool) - Perturb the orbits by an amount equal to 
+            the uncertainty from nearby data
+        gaia_input (array) - Gaia data
+        allstar_input (array) - APOGEE allstar data
+        delta (array) - Staeckel deltas for location
+        aAS (actionAngleStaeckel instance) - Staeckel action angle object 
+            to calculate kinematic quantities
+        pot (potential.Potential instance) - Milky Way potential
+        ro,vo,zo (float) - Galpy scales and Sun position
     
     Returns:
         results (arr) - Array of orbs, eELzs, actions
     '''
-    
-    # Timing?
-
     orbs_samp = df.sample(n=n_samples,R=np.ones_like(n_samples)*orbs_locs.R(),
-                                      phi=np.ones_like(n_samples)*orbs_locs.phi(),
-                                      z=np.ones_like(n_samples)*orbs_locs.z())
+                          phi=np.ones_like(n_samples)*orbs_locs.phi(),
+                          z=np.ones_like(n_samples)*orbs_locs.z())
 
     # Resample orbits based on positional matches
     if do_perturb_orbs:
         orbs_samp = putil.perturb_orbit_with_Gaia_APOGEE_uncertainties(orbs_samp,
             gaia_input,allstar_input,only_velocities=True,ro=ro,vo=vo,zo=zo)
-    ##fi
 
     ecc,_,_,_ = aAS.EccZmaxRperiRap(orbs_samp, delta=delta, 
                                     use_physical=True, c=True)
@@ -135,13 +133,12 @@ def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
         Lz = Lz.value
     except AttributeError:
         pass
-    ##te
     
     eELzs = np.array([ecc,E,Lz])
     actions = np.array([jr,Lz,jz])
     
     return [orbs_samp,eELzs,actions]
-#def  
+  
 
 def fit_smooth_spline(x,y,s=0):
     '''fit_smooth_spline:
@@ -175,7 +172,7 @@ def fit_smooth_spline(x,y,s=0):
     smooth_spl = interpolate.UnivariateSpline(x[where_y_good], y[where_y_good], 
                                               k=3, s=s, ext=1)
     return smooth_spl
-#def
+
 
 def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions, 
     halo_selection_dict, phi0,
