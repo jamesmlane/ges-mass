@@ -120,3 +120,68 @@ def test_triaxial_densprofile_spherical_symmetry():
             assert np.all(np.fabs((rho-np.mean(rho))/np.mean(rho))<tol),\
                 'Densprofile '+str(ddps[i].__name__)+' is not '+\
                 'spherically symmetric when p=q=1, fdisc=0.'
+
+# Test that the density profiles behave predictably when theta changed.
+# theta=0. should equal theta=1. theta=0.
+def test_triaxial_densprofile_theta_rotation():
+    tol = 1e-10
+    
+    dps = [pdens.triaxial_single_angle_zvecpa,
+           pdens.triaxial_single_cutoff_zvecpa,
+           pdens.triaxial_broken_angle_zvecpa,
+           pdens.triaxial_single_trunc_zvecpa]
+    ddps = [pdens.triaxial_single_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_single_cutoff_zvecpa_plusexpdisk,
+            pdens.triaxial_broken_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_single_trunc_zvecpa_plusexpdisk]
+    dargs = [[2.,0.8,0.4,0.,0.5,0.], # alpha, p, q, theta, eta, phi
+             [3.5,1e-10,0.5,0.6,0.,0.5,0.], # alpha, beta, p, q, theta, eta, phi
+             [2.,4.,20.,0.7,0.3,0.,0.5,0.], # alpha_in, alpha_out, beta, p, q, theta, eta, phi
+             [2.,1e10,0.2,0.9,0.,0.5,0.] # alpha, beta, p, q, theta, eta, phi
+            ]
+            
+    rs = np.linspace(0.1,100.,num=11)
+    phis = np.linspace(0.,2*np.pi,num=11)
+    zs = np.linspace(0.1,10.,num=11)
+    
+    for i in range(len(dps)):
+        rho = dps[i](rs,phis,zs,dargs[i])
+        darg_rot = dargs[i]
+        darg_rot[-3] = 1.
+        rho_rot = dps[i](rs,phis,zs,darg_rot)
+        assert np.all(np.fabs((rho-rho_rot)/rho)<tol),\
+            'Densprofile '+str(dps[i].__name__)+' is not '+\
+            'invariant under a rotation of phi=pi'
+
+# Test that the density profiles behave predictably when phi changed.
+# phi=0. should equal phi=1.
+def test_triaxial_densprofile_phi_rotation():
+    tol = 1e-10
+    
+    dps = [pdens.triaxial_single_angle_zvecpa,
+           pdens.triaxial_single_cutoff_zvecpa,
+           pdens.triaxial_broken_angle_zvecpa,
+           pdens.triaxial_single_trunc_zvecpa]
+    ddps = [pdens.triaxial_single_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_single_cutoff_zvecpa_plusexpdisk,
+            pdens.triaxial_broken_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_single_trunc_zvecpa_plusexpdisk]
+    dargs = [[2.,0.8,0.4,0.5,0.5,0.], # alpha, p, q, theta, eta, phi
+             [3.5,1e-10,0.5,0.6,0.5,0.5,0.], # alpha, beta, p, q, theta, eta, phi
+             [2.,4.,20.,0.7,0.3,0.5,0.5,0.], # alpha_in, alpha_out, beta, p, q, theta, eta, phi
+             [2.,1e10,0.2,0.9,0.5,0.5,0.] # alpha, beta, p, q, theta, eta, phi
+            ]
+            
+    rs = np.linspace(0.1,100.,num=11)
+    phis = np.linspace(0.,2*np.pi,num=11)
+    zs = np.linspace(0.1,10.,num=11)
+    
+    for i in range(len(dps)):
+        rho = dps[i](rs,phis,zs,dargs[i])
+        darg_rot = dargs[i]
+        darg_rot[-1] = 1.
+        rho_rot = dps[i](rs,phis,zs,darg_rot)
+        rho_rot = dps[i](rs,phis,zs,darg_rot)
+        assert np.all(np.fabs((rho-rho_rot)/rho)<tol),\
+            'Densprofile '+str(dps[i].__name__)+' is not '+\
+            'invariant under a rotation of phi=pi'
