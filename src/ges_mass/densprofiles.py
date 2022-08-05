@@ -12,6 +12,7 @@ import numpy as np
 from galpy.util import bovy_coords, _rotate_to_arbitrary_vector
 from scipy.optimize import newton
 from scipy.special import erfinv
+import warnings
 
 _ro = 8.275 # Gravity Collab.
 _zo = 0.0208 # Bennett and Bovy
@@ -250,8 +251,107 @@ def zvec_to_eta_theta(zvec):
             theta = 0.
     return eta,theta
 
-# Density models
+# Utilities to get some information from density functions
 
+def get_densfunc_nodisk(densfunc):
+    '''get_densfunc_nodisk:
+    
+    Get a density profile corresponding to the input which does not have a 
+    disk. If the input density profile has no disk to begin with then return 
+    the input density profile.
+    
+    Args:
+        densfunc (callable) - densfunc to find the counterpart without a 
+            disk
+    
+    Returns:
+        densfunc_nodisk (callable) - counterpart to densfunc which does not 
+            have a disk component
+    '''
+    densfuncs_nodisk_already = [spherical, spherical_cutoff, axisymmetric, 
+                                triaxial_norot, triaxial_single_angle_aby,
+                                triaxial_single_angle_zvecpa, 
+                                triaxial_single_cutoff_zvecpa, 
+                                triaxial_broken_angle_zvecpa, 
+                                triaxial_single_trunc_zvecpa]
+    if densfunc in densfuncs_nodisk_already:
+        return densfunc
+    elif densfunc == triaxial_broken_angle_zvecpa_plusexpdisk:
+        return triaxial_broken_angle_zvecpa
+    elif densfunc == triaxial_single_angle_zvecpa_plusexpdisk:
+        return triaxial_single_angle_zvecpa
+    elif densfunc == triaxial_single_cutoff_zvecpa_plusexpdisk:
+        return triaxial_single_cutoff_zvecpa
+    elif densfunc == triaxial_single_trunc_zvecpa_plusexpdisk:
+        return triaxial_single_trunc_zvecpa
+    elif densfunc == exp_disk:
+        warnings.warn('exp_disk has no component without a disk')
+        return None
+
+def get_densfunc_mcmc_labels(densfunc, physical_units=False):
+    '''get_densfunc_mcmc_labels:
+    
+    Args:
+        densfunc (callable) - density function
+        physical_units (bool) - 
+    
+    Returns:
+        labels (arr) - String array
+    '''
+    if  'triaxial_single_angle_zvecpa' in densfunc.__name__:
+        labels = [r'$\alpha$', r'$p$', r'$q$', r'$\theta$', r'$\eta$', 
+                  r'$\phi$']
+    elif 'triaxial_single_cutoff_zvecpa' in densfunc.__name__:
+        labels = [r'$\alpha$', r'$\beta$', r'$p$', r'$q$', r'$\theta$', 
+                  r'$\eta$', r'$\phi$']
+    elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
+        labels = [r'$\alpha_{in}$', r'$\alpha_{out}$', r'$\beta$', r'$p$', 
+                  r'$q$', r'$\theta$', r'$\eta$', r'$\phi$']
+    elif 'triaxial_single_trunc_zvecpa' in densfunc.__name__:
+        labels = [r'$\alpha$', r'$\beta$', r'$p$', r'$q$', r'$\theta$', 
+                  r'$\eta$', r'$\phi$']
+                    
+    if densfunc.__name__[-11:] == 'plusexpdisk':
+        labels.append(r'$f_{disk}$')
+    
+    if physical_units:
+        for i in range(len(labels)):
+            if 'beta' in labels[i]:
+                labels[i] = labels[i]+' [kpc]'
+            if 'theta' in labels[i]:
+                labels[i] = labels[i]+' [rad]'
+            if 'phi' in labels[i]:
+                labels[i] = labels[i]+' [rad]'
+    
+    return labels
+    
+def get_densfunc_mcmc_init(densfunc):
+    '''get_densfunc_mcmc_init:
+    
+    Get the initialization for MCMC
+    
+    Args:
+        densfunc (callable) - density function
+        
+    Returns:
+        init (array) - Initia
+    '''
+    if  'triaxial_single_angle_zvecpa' in densfunc.__name__:
+        init = np.array([2.0, 0.5, 0.5, 0.5, 0.5, 0.5])
+    elif 'triaxial_single_cutoff_zvecpa' in densfunc.__name__:
+        init = np.array([2.0, 20., 0.5, 0.5, 0.5, 0.5, 0.5])
+    elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
+        init = np.array([2., 2., 20., 0.5, 0.5, 0.5, 0.5, 0.5])
+    elif 'triaxial_single_trunc_zvecpa' in densfunc.__name__:
+        init = np.array([2.0, 20., 0.5, 0.5, 0.5, 0.5, 0.5])
+    
+    if 'plusexpdisk' in densfunc.__name__:
+        init = np.concatenate((init,[0.01,]))
+    
+    return init
+    
+# Density models
+    
 def spherical(R,phi,z,params=[2.5,]):
     '''spherical:
     
