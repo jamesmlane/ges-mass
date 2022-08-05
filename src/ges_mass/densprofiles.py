@@ -22,7 +22,9 @@ _zo = 0.0208 # Bennett and Bovy
 def normalize_parameters(params,model):
     '''normalize_parameters:
     
-    Transform parameters from a finite domain to a normalized [0,1] domain
+    Transform parameters from a finite domain to a normalized [0,1] domain.
+    Parameters that have an infinite domain, such as power law indices are 
+    not transformed
     
     Args:
         params (list) - Density function parameters 
@@ -31,8 +33,17 @@ def normalize_parameters(params,model):
     Returns:
         params (list) - Normalized density function parameters
     '''
+    # Non-rotated density profiles have trivial transformations
     if model.__name__ == 'spherical':
         params_out = [params[0],]
+    if model.__name__ == 'spherical_cutoff':
+        params_out = [params[0],params[1]]
+    if model.__name__ == 'axisymmetric':
+        params_out = [params[0],params[1],]
+    if model.__name__ == 'triaxial_norot':
+        params_out = [params[0],params[1],params[2]]
+        
+    # Handle profiles that might have a disk component
     if 'triaxial_single_angle_zvecpa' in model.__name__:
         # params are [alpha,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
@@ -76,8 +87,16 @@ def denormalize_parameters(params,model):
     Returns:
         params (list) - Density function parameters
     '''
+    # Non-rotated density profiles have trivial transformations
     if model.__name__ == 'spherical':
         params_out = [params[0],]
+    if model.__name__ == 'spherical_cutoff':
+        params_out = [params[0],params[1]]
+    if model.__name__ == 'axisymmetric':
+        params_out = [params[0],params[1],]
+    if model.__name__ == 'triaxial_norot':
+        params_out = [params[0],params[1],params[2]]
+        
     if 'triaxial_single_angle_zvecpa' in model.__name__:
         # params are [alpha,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
