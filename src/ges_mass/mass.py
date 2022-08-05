@@ -81,6 +81,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
     
     # Use maximum likelihood to find a starting point
     if MLE_init:
+        print('Doing maximum likelihood to find starting point')
         opt = scipy.optimize.fmin(lambda x: pmass.mloglike(x, densfunc, effsel, 
             Rgrid, phigrid, zgrid, Rdata, phidata, zdata, usr_log_prior), init, 
             full_output=True)
