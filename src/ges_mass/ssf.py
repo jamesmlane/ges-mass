@@ -373,20 +373,23 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
     modulus grid and apply it to the effective selection function grid.
 
     Args:
-        selec_spaces (list) - List of selection spaces corresponding to the 
+        selec_spaces (list) - List of strings corresponding to the kinematic 
+            selection
         effSF_grid (np array) - Effective selection function grid with shape 
             [nfields,ndistmods]
-        apogee_fields (np recarray) apogee field information array
-        ds (np array) - Distance grid
+        apogee_fields (np recarray) APOGEE field information array
+        ds (np array) - Distance grid in kpc
         kSF_dir (string) - Kinematic selection function directory where the 
             spline files are stored
         fig_dir (string) - Place to store figures
         make_sf_plots (bool) - Make plots of the SFs
         denspot (galpy.potential.Potential) - Density profile to weight 
             SFs along LOS for proper visualization
+        ro,vo,zo (float) - galpy scale lengths / solar position
 
     Returns:
-        None
+        keffSF_grid (array) - kinematic effective selection function grid with 
+            shape [nfields,ndistmods]
     '''
     # Definitions and sanity
     logds = np.log10(ds)
@@ -398,13 +401,11 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
     selec_spaces_suffix = '-'.join(selec_spaces)
     if make_SF_plots:
         os.makedirs(fig_dir+selec_spaces_suffix,exist_ok=True)
-    ##fi
     kSF_spline_filename = kSF_dir+'ksf_splines_'+selec_spaces_suffix+'.pkl'
     print('Loading kinematic selection function spline grid from '\
           +kSF_spline_filename)
     with open(kSF_spline_filename,'rb') as f:
         completeness_splines,_,spline_locids = pickle.load(f)
-    ##wi
 
     # Create a grid to map the splines onto
     kSF_grid = np.zeros_like(effSF_grid)
@@ -417,7 +418,6 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
         spline_kSF_raw = completeness_splines[i](logds)
         spline_kSF_raw[spline_kSF_raw < 0] = 0
         kSF_grid[i,:] = spline_kSF_raw
-    ###i
     
     # Apply the kinematic selection function to the effective selection function
     keffSF_grid = effSF_grid*kSF_grid
@@ -496,9 +496,7 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
         
         fig.savefig(fig_dir+selec_spaces_suffix+'/SF_map.pdf')
         plt.close(fig)
-    ##fi
     return keffSF_grid
-#def
 
 # -----------------------------------------------------------------------------
 
