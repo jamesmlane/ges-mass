@@ -175,17 +175,44 @@ def fit_smooth_spline(x,y,s=0):
 
 
 def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions, 
-    halo_selection_dict, phi0,
-    lblocids_pointing, ds_individual, fs, ksf_dir, fig_dir, 
-    force_splines=False, make_spline_plots=False,n_spline_plots=50):
+    halo_selection_dict, phi0, lblocids_pointing, ds_individual, fs, , ksf_dir, 
+    fig_dir, force_splines=False, make_spline_plots=None, n_spline_plots=50):
     '''make_completeness_purity_splines:
     
     Calculate completeness and purity at all locations for the kinematic 
     data given a selection. Then create completeness-distance and 
-    purity-distance splines. 
+    purity-distance splines. orbs, eELzs, and actions should be 2-element lists 
+    containing the low beta [0] and high beta [1] samples at each location 
+    where the spline is calculated.
     
     Args:
-    
+        selec_spaces (string or arr) - Kinematic selection string or array 
+            of strings representing a combined selection
+        orbs (list of orbit.Orbit instances) - list of size = number of 
+            DFs containing list of size = number of locations in the spline 
+            fitting grid  containing orbits representing kinematic samples
+        eELzs (list of orbit.Orbit instances) - list of size = number of 
+            DFs containing list of size = number of locations in the spline 
+            fitting grid  containing e,E,Lz
+        orbs (list of orbit.Orbit instances) - list of size = number of 
+            DFs containing list of size = number of locations in the spline 
+            fitting grid containing actions
+        halo_selection_dict (dict) - Dictionary containing halo selections
+        phi0 (float) - Value of the potential at infinity
+        lblocids_pointing (list) - List containing the ls, bs, and locids 
+            of each pointing
+        ds_individual (array) - List of individual distances used to fit 
+            a spline along each pointing
+        fs (array) - Array of length number of distance points x number of 
+            pointings containing the APOGEE location ID for each point
+        ksf_dir (string) - Directory to store the kinematic effective 
+            selection function data products
+        fig_dir (string) - Directory to store figures
+        force_splines (bool) - Force creation of new splines even if old 
+            ones exist
+        make_spline_plots (str) - Make plots of completeness splines 
+            'completeness', purity splines 'purity' or both 'both'
+        n_spline_plots (int) - Number of splines to plot
     
     Returns:
         None
@@ -193,7 +220,7 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
     print('\nSelection is: ')
     print(selec_spaces)
     
-    # Unpack
+    # Unpack info for each pointing
     ls_pointing,bs_pointing,locids_pointing = lblocids_pointing
     n_pointing = len(locids_pointing)
     
@@ -203,6 +230,7 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
     
     completeness = np.zeros(n_locs)
     purity = np.zeros(n_locs)
+    if isinstance(selec_spaces,str): selec_spaces = [selec_spaces,]
     selec_spaces_suffix = '-'.join(selec_spaces)
     spline_filename = ksf_dir+'ksf_splines_'+selec_spaces_suffix+'.pkl'
     
@@ -237,6 +265,7 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
                     highbeta_x, highbeta_y, this_selection, factor=[1.,1.])
                 
         if np.sum(highbeta_selec) == 0:
+            completeness[i] = 0
             purity[i] = 0
         else:
             completeness[i] = np.sum(highbeta_selec)/n_samples
@@ -269,21 +298,17 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
         print('Saving splines to '+spline_filename)
         with open(spline_filename,'wb') as f:
             pickle.dump([spl_completeness_arr,spl_purity_arr,locids_pointing],f)
-        ##wi
     else:
         # Load splines
         print('Loading splines from '+spline_filename)
         with open(spline_filename,'rb') as f:
             spl_completeness_arr,spl_purity_arr,_ = pickle.load(f)
-        ##wi
-    ##ie
     
     if make_spline_plots:
         if n_spline_plots == None:
             print('Making all spline plots')
         else:
             print('Making '+str(n_spline_plots)+' spline plots')
-        ##ie
         # Some keywoards
         label_fontsize = 8
         mock_xs = np.log10(np.linspace(ds_individual[0],ds_individual[-1],301))
@@ -298,7 +323,6 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
                 print('plotting location '+str(i+1)+'/'+str(n_pointing))
             else:
                 print('plotting location '+str(i+1)+'/'+str(n_pointing), end='\r')
-            ##ie
 
             # Get spline data
             where_pointing = np.where(fs == locids_pointing[i])[0]
@@ -322,7 +346,6 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
                             +'_distance.png'
                 fig.savefig(fig_title, dpi=100)
                 plt.close(fig)
-            ##fi
             
             # Purity
             if make_spline_plots in ['purity','both']:
@@ -340,9 +363,7 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
                             +'_distance.png'
                 fig.savefig(fig_title, dpi=200)
                 plt.close(fig)
-        ###i
-    ##fi
-#def
+                
 
 def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
     fig_dir,ro,vo,zo,make_SF_plots=False,denspot=None):
