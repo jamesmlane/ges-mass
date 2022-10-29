@@ -357,6 +357,48 @@ def zvec_to_eta_theta(zvec):
 
 # Utilities to get some information from density functions
 
+def get_densfunc_params_indx(densfunc,param):
+    '''get_densfunc_param_indx:
+    
+    Get the indices of a set of parameters
+    
+    Args:
+        densfunc (callable) - densfunc to find the parameter indices
+        param (list of str) - List of strings representing parameters 
+    
+    Returns:
+        indx (array) - List of indices representing locations of parameters
+    '''
+    # Wrap up param if int
+    if isinstance(param,int):
+        param = [param,]
+    
+    # Lists of parameters
+    if 'triaxial_single_angle_zvecpa' in densfunc.__name__:
+        param_names = np.array(['alpha','p','q','theta','eta','phi'])
+    
+    elif 'triaxial_single_cutoff_zvecpa' in densfunc.__name__:
+        param_names = np.array(['alpha','beta','p','q','theta','eta','phi'])
+    
+    elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
+        param_names = np.array(['alpha_in','alpha_out','r1','p','q','theta',
+                                'eta','phi'])
+        
+    elif 'triaxial_double_broken_angle_zvecpa' in densfunc.__name__:
+        param_names = np.array(['alpha_in','alpha_mid','alpha_out','r1',
+                                'r2','p','q','theta','eta','phi'])
+        
+    if 'plusexpdisk' in densfunc.__name__:
+        param_names = np.concatenate((param_names,['fdisk']))
+    
+    indx = []
+    for i in range(len(param)):
+        assert param[i] in param_names, '"'+params[i]+'" not in densfunc list'
+        indx = indx+[ np.where(param_names==param[i])[0][0] ]
+    
+    return indx
+
+
 def get_densfunc_nodisk(densfunc):
     '''get_densfunc_nodisk:
     
