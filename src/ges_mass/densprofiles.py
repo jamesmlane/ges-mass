@@ -758,21 +758,18 @@ def spherical(R,phi,z,params=[2.,]):
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    grid = False
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
+    alpha = params[0]
+    R,phi,z,grid,dim = check_grid(R,phi,z)
     x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    dens = np.sqrt(x**2+y**2+z**2)**(-params[0])
-    dens = dens/(np.sqrt(_ro**2+_zo**2)**(-params[0]))
+    
+    dens = np.sqrt(x**2+y**2+z**2)**(-alpha)
+    dens = dens/(np.sqrt(_ro**2+_zo**2)**(-alpha))
     if grid:
         dens = dens.reshape(dim)
     return dens
 
-def spherical_cutoff(R,phi,z,params=[2.5,0.1]):
+
+def spherical_cutoff(R,phi,z,params=[2.,0.1]):
     '''spherical_cutoff:
     
     general spherical power-law density model with exponential cutoff
@@ -786,23 +783,20 @@ def spherical_cutoff(R,phi,z,params=[2.5,0.1]):
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    grid = False
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
+    alpha,beta = params
+    R,phi,z,grid,dim = check_grid(R,phi,z)
     x, y, z = R*np.cos(phi), R*np.sin(phi), z
     r = np.sqrt(x**2+y**2+z**2)
-    dens = r**(-params[0])*np.exp(-params[1]*r)
-    dens = dens/(np.sqrt(_ro**2+_zo**2)**(-params[0])\
-                 *np.exp(-params[1]*np.sqrt(_ro**2+_zo**2)))
+    
+    dens = r**(-alpha)*np.exp(-beta*r)
+    dens = dens/(np.sqrt(_ro**2+_zo**2)**(-alpha)\
+                 *np.exp(-beta*np.sqrt(_ro**2+_zo**2)))
     if grid:
         dens = dens.reshape(dim)
     return dens
 
-def axisymmetric(R,phi,z,params=[2.5,1.]):
+
+def axisymmetric(R,phi,z,params=[2.,0.5]):
     '''axisymmetric:
     
     general axisymmetric power-law density model
@@ -816,21 +810,19 @@ def axisymmetric(R,phi,z,params=[2.5,1.]):
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
+    alpha,q = params
     grid = False
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
+    R,phi,z,grid,dim = check_grid(R,phi,z)
     x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    dens = np.sqrt(x**2+y**2+z**2/params[1]**2)**-params[0]
-    dens = dens/np.sqrt(_ro**2+_zo**2/params[1]**2)**-params[0]
+    
+    dens = np.sqrt(x**2+y**2+z**2/q**2)**-alpha
+    dens = dens/np.sqrt(_ro**2+_zo**2/q**2)**-alpha
     if grid:
         dens = dens.reshape(dim)
     return dens
 
-def triaxial_norot(R,phi,z,params=[2.5,1.,1.]):
+
+def triaxial_norot(R,phi,z,params=[2.,0.5,0.5]):
     '''triaxial_norot:
     
     General triaxial power-law density profile without rotation (aligned with
