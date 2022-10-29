@@ -480,8 +480,8 @@ def get_densfunc_mcmc_labels(densfunc, physical_units=False):
     
     return labels
     
-def get_densfunc_mcmc_init(densfunc):
-    '''get_densfunc_mcmc_init:
+def get_densfunc_mcmc_init_uninformed(densfunc):
+    '''get_densfunc_mcmc_init_uninformed:
     
     Get the initialization for MCMC
     
