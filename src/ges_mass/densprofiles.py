@@ -489,25 +489,263 @@ def get_densfunc_mcmc_init_uninformed(densfunc):
         densfunc (callable) - density function
         
     Returns:
-        init (array) - Initia
+        init (array) - Initial parameters
     '''
     if  'triaxial_single_angle_zvecpa' in densfunc.__name__:
-        init = np.array([2.0, 0.5, 0.5, 0.5, 0.5, 0.5])
+        init = np.array([2.0, 0.5, 0.5, 0.01, 0.99, 0.01])
     elif 'triaxial_single_cutoff_zvecpa' in densfunc.__name__:
-        init = np.array([2.0, 20., 0.5, 0.5, 0.5, 0.5, 0.5])
+        init = np.array([2.0, 1/20., 0.5, 0.5, 0.01, 0.99, 0.01])
     elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
-        init = np.array([2., 2., 20., 0.5, 0.5, 0.5, 0.5, 0.5])
+        if 'inv' in densfunc.__name__:
+            init = np.array([2., 4., 0.05, 0.5, 0.5, 0.01, 0.99, 0.01])
+        else:
+            init = np.array([2., 4., 20., 0.5, 0.5, 0.01, 0.99, 0.01])
+    elif 'triaxial_double_broken_angle_zvecpa' in densfunc.__name__:
+        init = np.array([2., 3., 4., 20., 40., 0.5, 0.5, 0.01, 0.99, 0.01])
     elif 'triaxial_single_trunc_zvecpa' in densfunc.__name__:
-        init = np.array([2.0, 20., 0.5, 0.5, 0.5, 0.5, 0.5])
+        init = np.array([2.0, 50., 0.5, 0.5, 0.01, 0.99, 0.01])
     
     if 'plusexpdisk' in densfunc.__name__:
         init = np.concatenate((init,[0.01,]))
     
     return init
+
+def get_densfunc_mcmc_init_source(densfunc):
+    '''get_densfunc_mcmc_init_source:
+    
+    Where to get the init for MCMC? In general profiles with disk contamination 
+    inherit from the same profile without disk contamination. More complicated 
+    profiles inherit from simpler profiles
+    
+    Args:
+        densfunc (callable) - Density profile that needing init
+    
+    Returns:
+        densfunc_source (callable) - Density profile that init is inherited from
+    '''
+    corr = {'triaxial_single_angle_zvecpa':None,
+            'triaxial_single_angle_zvecpa_plusexpdisk':\
+                triaxial_single_angle_zvecpa,
+            
+            'triaxial_single_cutoff_zvecpa':\
+                triaxial_single_angle_zvecpa,
+            'triaxial_single_cutoff_zvecpa_plusexpdisk':\
+                triaxial_single_cutoff_zvecpa,
+            
+            'triaxial_broken_angle_zvecpa':\
+                triaxial_single_angle_zvecpa,
+            'triaxial_broken_angle_zvecpa_plusexpdisk':\
+                triaxial_broken_angle_zvecpa,
+            
+            'triaxial_broken_angle_zvecpa_inv':\
+                triaxial_single_angle_zvecpa,
+           
+            'triaxial_double_broken_angle_zvecpa':\
+                triaxial_broken_angle_zvecpa,
+            'triaxial_double_broken_angle_zvecpa_plusexpdisk':\
+                triaxial_double_broken_angle_zvecpa,
+            }
+    return corr[densfunc.__name__]
+
+def get_densfunc_mcmc_init_informed(densfunc, feh_range, init_type='ML', 
+                                    verbose=False):
+        '''get_densfunc_mcmc_init_informed:
+        
+        Get an informed set of parameters to use as init. Normally load the 
+        maximum likelihood set of parameters of the source densprofile. 
+        init_type can be:
+        'ML' - Use the maximum likelihood samples from the source densfunc
+        'uninformed' - Just use default init
+        
+        Args:
+            densfunc (callable) - Density profile to get init for
+            feh_range (array) - 2-element array of [feh minimum, feh maximum]
+            init_type (string) - Type of init to load. 'ML' for maximum 
+                likelihood sample, 'uninformed' for default init
+            verbose (bool) - Be verbose? [default False]
+            
+        Returns:
+            init (array) - Init parameters to use
+        '''
+        if densfunc is None:
+            assert densfunc is not None, 'Must have densfunc'
+        if feh_range is None:
+            assert feh_range is not None, 'Must have feh_range'
+            feh_range = self.feh_range
+        
+        assert init_type in ['ML','uninformed']
+
+        if densfunc.__name__ == 'triaxial_single_angle_zvecpa':
+            init_type = 'uninformed'
+
+        # Unpack
+        feh_min,feh_max = feh_range
+
+        # Kinematic selection space
+        if isinstance(selec,str): selec=[selec,]
+        selec_suffix = '-'.join(selec)
+
+        # Get the densfunc that will provide the init
+        densfunc_source = pdens.get_densfunc_mcmc_init_source(densfunc)
+
+        # Check ML files
+        if init_type=='ML':
+            # Sample & ML filename
+            samples_filename = self.fit_data_dir+'samples.npy'
+            ml_filename = self.fit_data_dir+'mll_aic_bic.npy'
+            if (not os.path.exists(samples_filename)) or\
+               (not os.path.exists(ml_filename)):
+                warnings.warn('Files required for init_type "ML" not present'
+                              ', changing init_type to "uninformed"')
+                init_type = 'uninformed'
+
+        if init_type == 'uninformed':
+            init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
+        if init_type == 'ML':
+            samples = np.load(samples_filename)
+            _,ml_ind,_,_ = np.load(ml_filename)
+            sample_ml = samples[int(ml_ind)]
+            init = pdens.make_densfunc_mcmc_init_from_source_params( densfunc, 
+                params_source=sample_ml, densfunc_source=densfunc_source)
+
+        if verbose:
+            print('init_type: '+str(init_type))
+            print('densfunc_source: '+densfunc_source.__name__)
+            print('fit_data_dir: '+fit_data_dir)
+
+        return init
+
+def make_densfunc_mcmc_init_from_source_params(densfunc,params_source,
+    densfunc_source=None):
+    '''make_densfunc_mcmc_init_from_source_params:
+    
+    densfunc_source needs to match get_densfunc_mcmc_init_source(densfunc)
+    
+    Args:
+        densfunc (callable) - Density profile for which init is being 
+            created
+        params_source (array) - Parameters from source density profile
+        densfunc_source - Density profile that donates params_source
+    
+    Returns:
+        params
+    '''
+    if densfunc_source is not None:
+        if not densfunc_source.__name__ ==\
+            get_densfunc_mcmc_init_source(densfunc).__name__:
+            warnings.warn('densfunc_source does not match densfunc from'
+                             'get_densfunc_mcmc_init_source()')
+    else:
+        densfunc_source = get_densfunc_mcmc_init_source(densfunc)
+    
+    params = get_densfunc_mcmc_init_uninformed(densfunc)
+    if densfunc.__name__ == 'triaxial_single_angle_zvecpa':
+        return params
+    elif densfunc.__name__ == 'triaxial_single_cutoff_zvecpa':
+        params[0] = params_source[0]
+        params[2:] = params_source[1:]
+    elif densfunc.__name__ == 'triaxial_broken_angle_zvecpa':
+        params[0] = params_source[0]
+        params[1] = params[0]+1.
+        params[3:] = params_source[1:]
+    elif densfunc.__name__ == 'triaxial_broken_angle_zvecpa_inv':
+        params[0] = params_source[0]
+        params[1] = params[0]+1.
+        params[3:] = params_source[1:]
+    elif densfunc.__name__ == 'triaxial_double_broken_angle_zvecpa':
+        params[:2] = params_source[:2]
+        params[2] = params[1]+1.
+        params[3] = params_source[2]
+        params[4] = params[3]+10.
+        params[5:] = params_source[3:]
+    elif 'plusexpdisk' in densfunc.__name__:
+        params[:-1] = params_source
+    else:
+        warnings.warn('Could not find densfunc')
+        return None
+    return params
+        
+        
+def get_densfunc_minimization_constraint(densfunc):
+    '''get_densfunc_minimization_bounds:
+    
+    Get a set of bounds for the minimization routine to start the MCMC
+    
+    Args:
+        densfunc (callable) - density function
+        
+    Return:
+        None
+    '''
+    return None
+
+def get_default_thick_disk_params():
+    '''get_default_thick_disk_params:
+    
+    Get a default set of thick disk parameters. These are from 
+    Mackereth+2017, and used by Mackereth+2020. User can edit these.
+    
+    Args:
+        None
+    
+    Returns:
+        hr (float) - Radial scale length in inverse kpc
+        hz (float) - vertical scale length in inverse kpc
+    '''
+    return 1./2.2, 1./0.8
+
+
+def check_grid(R,phi,z):
+    '''check_grid:
+    
+    Check if the input R,phi,z are a grid or not, if they are then flatten
+    
+    Args:
+        R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
+    
+    Returns:
+        R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
+        grid (bool) - Input data is multidimensional
+        dim (array) - Input data dimension array
+    '''
+    grid = False
+    dim = None
+    if np.ndim(R) > 1:
+        grid = True
+        dim = np.shape(R)
+        R = R.reshape(np.product(dim))
+        phi = phi.reshape(np.product(dim))
+        z = z.reshape(np.product(dim))
+    return R,phi,z,grid,dim
+
+def make_zvec_r_e(R,phi,z,p,q,theta,eta,pa):
+    '''make_zvec_r_e:
+    
+    Make effective radii for data and Sun
+    
+    Args:
+        R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
+        p,q (floats) - Y and Z axis scale lengths
+        theta,eta,pa (floats) - zvec transformation parameters
+    
+    Returns:
+        r_e (np.array) - Effective radii after transformation and axis scaling
+        r_e_sun (float) - Effective radius of solar position after 
+            transformation and axis scaling
+    '''
+    zvec = np.array([np.sqrt(1-eta**2)*np.cos(theta), 
+                     np.sqrt(1-eta**2)*np.sin(theta), 
+                     eta])
+    x, y, z = R*np.cos(phi), R*np.sin(phi), z
+    x, y, z = transform_zvecpa(np.dstack([x,y,z])[0], zvec,pa)
+    xsun,ysun,zsun = transform_zvecpa([_ro,0.,_zo],zvec,pa)
+    r_e = np.sqrt(x**2+y**2/p**2+z**2/q**2)
+    r_e_sun = np.sqrt(xsun**2+ysun**2/p**2+zsun**2/q**2)
+    return r_e,r_e_sun
     
 # Density models
     
-def spherical(R,phi,z,params=[2.5,]):
+def spherical(R,phi,z,params=[2.,]):
     '''spherical:
     
     general spherical power-law density model
