@@ -838,62 +838,18 @@ def triaxial_norot(R,phi,z,params=[2.,0.5,0.5]):
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    grid = False
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
+    alpha,p,q = params
+    R,phi,z,grid,dim = check_grid(R,phi,z)
     x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    dens = np.sqrt(x**2+y**2/params[1]**2+z**2/params[2]**2)**-params[0]
-    dens = dens/np.sqrt(_ro**2+_zo**2/params[2]**2)**-params[0]
+    
+    dens = np.sqrt(x**2+y**2/p**2+z**2/q**2)**-alpha
+    dens = dens/np.sqrt(_ro**2+_zo**2/q**2)**-alpha
     if grid:
         dens = dens.reshape(dim)
     return dens
 
-# def triaxial_single_angle_aby(R,phi,z,params=[2.,0.5,0.5,0.5,0.5,0.5]):
-#     '''triaxial_single_angle_aby:
-# 
-#     Triaxial power-law density profile rotated using the alpha-beta-gamma 
-#     scheme (see transform_aby)
-# 
-#     Args: 
-#         R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
-#         params (float array) - [alpha,p,q,A,B,Y]
-#             alpha (float) - Power law index
-#             p (float) - Ratio of Y to X scale lengths
-#             q (float) - Ratio of Z to X scale lengths
-#             A (float) - Alpha rotation angle
-#             B (float) - Beta rotation angle
-#             Y (float) - Gamma rotation angle
-# 
-#     Returns
-#         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
-#     '''
-#     grid = False
-#     # alpha = 0.9*np.pi*params[3]+0.05*np.pi-np.pi/2.
-#     # beta = 0.9*np.pi*params[4]+0.05*np.pi-np.pi/2.
-#     # gamma = 0.9*np.pi*params[5]+0.05*np.pi-np.pi/2.
-#     if np.ndim(R) > 1:
-#         grid = True
-#         dim = np.shape(R)
-#         R = R.reshape(np.product(dim))
-#         phi = phi.reshape(np.product(dim))
-#         z = z.reshape(np.product(dim))
-#     x, y, z = R*np.cos(phi), R*np.sin(phi), z
-#     x, y, z = transform_aby(np.dstack([x,y,z])[0], alpha,beta,gamma)
-#     xsun, ysun, zsun = transform_aby([_ro, 0., _zo],alpha,beta,gamma)
-#     r_e = np.sqrt(x**2+y**2/params[1]**2+z**2/params[2]**2)
-#     r_e_sun = np.sqrt(xsun**2+ysun**2/params[1]**2+zsun**2/params[2]**2)
-#     dens = (r_e)**(-params[0])
-#     sundens = (r_e_sun)**(-params[0])
-#     dens = dens/sundens
-#     if grid:
-#         dens = dens.reshape(dim)
-#     return dens
 
-def triaxial_single_angle_zvecpa(R,phi,z,params=[2.,0.5,0.5,0.,0.,0.]):
+def triaxial_single_angle_zvecpa(R,phi,z,params=[2.,0.5,0.5,0.01,0.99,0.01]):
     '''triaxial_single_angle_zvecpa:
     
     Triaxial power-law density profile rotated using the zvec-pa scheme 
