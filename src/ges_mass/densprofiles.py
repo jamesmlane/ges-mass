@@ -454,10 +454,14 @@ def get_densfunc_mcmc_labels(densfunc, physical_units=False):
         labels = [r'$\alpha$', r'$\beta$', r'$p$', r'$q$', r'$\theta$', 
                   r'$\eta$', r'$\phi$']
     elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
-        labels = [r'$\alpha_{in}$', r'$\alpha_{out}$', r'$\beta$', r'$p$', 
+        labels = [r'$\alpha_{1}$', r'$\alpha_{2}$', r'$r_{1}$', r'$p$', 
                   r'$q$', r'$\theta$', r'$\eta$', r'$\phi$']
+    elif 'triaxial_double_broken_angle_zvecpa' in densfunc.__name__:
+        labels = [r'$\alpha_{1}$', r'$\alpha_{2}$', r'$\alpha_{3}$', 
+                  r'$r_{1}$', r'$r_{2}$', r'$p$', r'$q$', r'$\theta$', 
+                  r'$\eta$', r'$\phi$']
     elif 'triaxial_single_trunc_zvecpa' in densfunc.__name__:
-        labels = [r'$\alpha$', r'$\beta$', r'$p$', r'$q$', r'$\theta$', 
+        labels = [r'$\alpha$', r'$r_{1}$', r'$p$', r'$q$', r'$\theta$', 
                   r'$\eta$', r'$\phi$']
                     
     if densfunc.__name__[-11:] == 'plusexpdisk':
@@ -466,7 +470,9 @@ def get_densfunc_mcmc_labels(densfunc, physical_units=False):
     if physical_units:
         for i in range(len(labels)):
             if 'beta' in labels[i]:
-                labels[i] = labels[i]+' [kpc]'
+                labels[i] = labels[i]+r' [kpc$^{-1}$]'
+            if 'r_' in labels[i]:
+                labels[i] = labels[i]+r' [kpc]'
             if 'theta' in labels[i]:
                 labels[i] = labels[i]+' [rad]'
             if 'phi' in labels[i]:
