@@ -873,32 +873,21 @@ def triaxial_single_angle_zvecpa(R,phi,z,params=[2.,0.5,0.5,0.01,0.99,0.01]):
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    grid = False
-    theta = params[3]*2*np.pi
-    tz = (params[4]*2)-1
-    zvec = np.array([np.sqrt(1-tz**2)*np.cos(theta), 
-                     np.sqrt(1-tz**2)*np.sin(theta), 
-                     tz])
-    pa = (params[5]*np.pi)#-np.pi/2.
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
-    x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    x, y, z = transform_zvecpa(np.dstack([x,y,z])[0], zvec,pa)
-    xsun,ysun,zsun = transform_zvecpa([_ro,0.,_zo],zvec,pa)
-    r_e = np.sqrt(x**2+y**2/params[1]**2+z**2/params[2]**2)
-    r_e_sun = np.sqrt(xsun**2+ysun**2/params[1]**2+zsun**2/params[2]**2)
-    dens = (r_e)**(-params[0])
-    sundens = (r_e_sun)**(-params[0])
-    dens = dens/sundens
+    alpha,p,q,theta,eta,pa = denormalize_parameters(
+        params, triaxial_single_angle_zvecpa)[0]
+    R,phi,z,grid,dim = check_grid(R,phi,z)
+    r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
+    
+    dens = (r_e)**(-alpha)
+    sundens = (r_e_sun)**(-alpha)
+    dens = dens/sundens 
     if grid:
         dens = dens.reshape(dim)
     return dens
 
-def triaxial_single_cutoff_zvecpa(R,phi,z,params=[2.,1.,0.5,0.5,0.,0.,0.]):
+
+def triaxial_single_cutoff_zvecpa(
+    R,phi,z,params=[2.,0.1,0.5,0.5,0.01,0.99,0.01]):
     '''triaxial_single_cutoff_zvecpa:
     
     Triaxial power-law density profile with exponential cutoff rotated 
@@ -923,32 +912,71 @@ def triaxial_single_cutoff_zvecpa(R,phi,z,params=[2.,1.,0.5,0.5,0.,0.,0.]):
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    # params[1] = 0. # Test
-    grid = False
-    theta = params[4]*2*np.pi
-    tz = (params[5]*2)-1
-    zvec = np.array([np.sqrt(1-tz**2)*np.cos(theta), np.sqrt(1-tz**2)*np.sin(theta), tz])
-    pa = (params[6]*np.pi)
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
-    x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    x, y, z = transform_zvecpa(np.dstack([x,y,z])[0], zvec,pa)
-    xsun,ysun,zsun = transform_zvecpa([_ro,0.,_zo],zvec,pa)
-    r_e = np.sqrt(x**2+y**2/params[2]**2+z**2/params[3]**2)
-    r_e_sun = np.sqrt(xsun**2+ysun**2/params[2]**2+zsun**2/params[3]**2)
-    dens = (r_e)**(-params[0])*np.exp(-params[1]*r_e)
-    sundens = (r_e_sun)**(-params[0])*np.exp(-params[1]*r_e_sun)
+    alpha,beta,p,q,theta,eta,pa = denormalize_parameters(
+        params, triaxial_single_cutoff_zvecpa)[0]
+    R,phi,z,grid,dim = check_grid(R,phi,z)
+    r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
+    
+    dens = (r_e)**(-alpha)*np.exp(-beta*r_e)
+    sundens = (r_e_sun)**(-alpha)*np.exp(-beta*r_e_sun)
     dens = dens/sundens
     if grid:
         dens = dens.reshape(dim)
     return dens
 
+
+def triaxial_broken_angle_zvecpa_inv(R,phi,z,
+    params=[2.,3.,0.1,0.5,0.5,0.01,0.99,0.01],split=False):
+    '''triaxial_broken_angle_zvecpa:
+    
+    Triaxial broken angle power-law density profile with inverse scale lengths 
+    rotated using the zvec-pa scheme (see transform_zvecpa). Note that zvec is 
+    parameterized using two parameters eta and theta as follows:
+    
+    zvec = [ sqrt(1-eta^2)*cos(theta) ]
+           [ sqrt(1-eta^2)*sin(theta) ]
+           [ eta                      ]
+    
+    Args: 
+        R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
+        params (float array) - [alpha,beta,p,q,eta,theta,pa,fdisk]
+            alpha_in (float) - Inner power law index
+            alpha_out (float) - Outer power law index
+            beta1 (float) - Inverse radius where the power law index changes
+            p (float) - Ratio of Y to X scale lengths
+            q (float) - Ratio of Z to X scale lengths
+            theta (float) - Sets scale / orientation of zvec in XY plane
+            eta (float) - Sets scale of zvec along Z-axis
+            pa (float) - Final rotation angle
+                contained in the disk, halo density fraction is then (1-fdisk)
+        
+    Returns
+        dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
+    '''
+    alpha_in,alpha_out,beta1,p,q,theta,eta,pa = denormalize_parameters(
+        params, triaxial_broken_angle_zvecpa)[0]
+    r1 = 1./beta1
+    R,phi,z,grid,dim = check_grid(R,phi,z)
+    r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
+    
+    dens = np.zeros(len(r_e))
+    inner_mask = r_e <= r1
+    outer_mask = r_e > r1
+    r1norm = r1**(alpha_out-alpha_in)
+    dens[inner_mask] = (r_e[inner_mask])**(-alpha_in)
+    dens[outer_mask] = r1norm*(r_e[outer_mask])**(-alpha_out)
+    if r_e_sun <= r1:
+        sundens = r_e_sun**(-alpha_in)
+    else:
+        sundens = r1norm*r_e_sun**(-alpha_out)
+    dens = dens/sundens
+    if grid:
+        dens = dens.reshape(dim)
+    return dens
+
+
 def triaxial_broken_angle_zvecpa(R,phi,z,
-    params=[2.,3.,5.,0.5,0.5,0.,0.,0.],split=False):
+    params=[2.,3.,10.,0.5,0.5,0.01,0.99,0.01],split=False):
     '''triaxial_broken_angle_zvecpa:
     
     Triaxial broken angle power-law density profile rotated using the zvec-pa 
@@ -975,36 +1003,87 @@ def triaxial_broken_angle_zvecpa(R,phi,z,
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    grid = False
-    theta = params[5]*2*np.pi
-    tz = (params[6]*2)-1
-    zvec = np.array([np.sqrt(1-tz**2)*np.cos(theta), np.sqrt(1-tz**2)*np.sin(theta), tz])
-    pa = (params[7]*np.pi)
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
-    x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    x, y, z = transform_zvecpa(np.dstack([x,y,z])[0], zvec,pa)
-    xsun,ysun,zsun = transform_zvecpa([_ro,0.,_zo],zvec,pa)
-    r_e = np.sqrt(x**2+y**2/params[3]**2+z**2/params[4]**2)
-    r_e_sun = np.sqrt(xsun**2+ysun**2/params[3]**2+zsun**2/params[4]**2)
+    alpha_in,alpha_out,r1,p,q,theta,eta,pa = denormalize_parameters(
+        params, triaxial_broken_angle_zvecpa)[0]
+    R,phi,z,grid,dim = check_grid(R,phi,z)
+    r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
+    
     dens = np.zeros(len(r_e))
-    dens[r_e < params[2]] = (r_e[r_e < params[2]])**(-params[0])
-    dens[r_e > params[2]] = (params[2])**(params[1]-params[0])*(r_e[r_e > params[2]])**(-params[1])
-    if params[2] < r_e_sun:
-        sundens = (params[2])**(params[1]-params[0])*(r_e_sun)**(-params[1])
+    inner_mask = r_e <= r1
+    outer_mask = r_e > r1
+    r1norm = r1**(alpha_out-alpha_in)
+    dens[inner_mask] = (r_e[inner_mask])**(-alpha_in)
+    dens[outer_mask] = r1norm*(r_e[outer_mask])**(-alpha_out)
+    if r_e_sun <= r1:
+        sundens = r_e_sun**(-alpha_in)
     else:
-        sundens = (r_e_sun)**(-params[0])
+        sundens = r1norm*r_e_sun**(-alpha_out)
     dens = dens/sundens
     if grid:
         dens = dens.reshape(dim)
     return dens
 
+
+def triaxial_double_broken_angle_zvecpa(R,phi,z,
+    params=[2.,3.,4.,10.,20.,0.5,0.5,0.,1.,0.],split=False):
+    '''triaxial_double_broken_angle_zvecpa:
+    
+    Triaxial broken angle power-law density profile rotated using the zvec-pa 
+    scheme (see transform_zvecpa). Note that zvec is parameterized using two 
+    parameters eta and theta as follows:
+    
+    zvec = [ sqrt(1-eta^2)*cos(theta) ]
+           [ sqrt(1-eta^2)*sin(theta) ]
+           [ eta                      ]
+    
+    Args:
+        R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
+        params (float array) - [alpha,beta,p,q,eta,theta,pa,fdisk]
+            alpha_in (float) - Inner power law index
+            alpha_mid (float) - Middle power law index
+            alpha_out (float) - Outer power law index
+            r1 (float) - Radius where the power law index changes from inner
+                to middle
+            r2 (float) - Radius where the power law index changes from middle 
+                to outer
+            p (float) - Ratio of Y to X scale lengths
+            q (float) - Ratio of Z to X scale lengths
+            theta (float) - Sets scale / orientation of zvec in XY plane
+            eta (float) - Sets scale of zvec along Z-axis
+            pa (float) - Final rotation angle
+                contained in the disk, halo density fraction is then (1-fdisk)
+        
+    Returns
+        dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
+    '''
+    alpha_in,alpha_mid,alpha_out,r1,r2,p,q,theta,eta,pa = denormalize_parameters(
+        params, triaxial_double_broken_angle_zvecpa)[0]
+    R,phi,z,grid,dim = check_grid(R,phi,z)
+    r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
+
+    dens = np.zeros(len(r_e))
+    inner_mask = r_e <= r1
+    middle_mask = (r_e > r1) & (r_e <= r2)
+    outer_mask = r_e > r2
+    r1norm = r1**(alpha_mid-alpha_in)
+    r2norm = r2**(alpha_out-alpha_mid)
+    dens[inner_mask] = (r_e[inner_mask])**(-alpha_in)
+    dens[middle_mask] = r1norm*(r_e[middle_mask])**(-alpha_mid)
+    dens[outer_mask] = r1norm*r2norm*(r_e[outer_mask])**(-alpha_out)
+    if r_e_sun <= r1:
+        sundens = r_e_sun**(-alpha_in)
+    elif (r_e_sun > r1) & (r_e_sun <= r2):
+        sundens = r1norm*r_e_sun**(-alpha_mid)
+    else:
+        sundens = r1norm*r2norm*r_e_sun**(-alpha_out)
+    dens = dens/sundens
+    if grid:
+        dens = dens.reshape(dim)
+    return dens
+
+
 def triaxial_single_trunc_zvecpa(R,phi,z,
-    params=[2.,10.,0.5,0.5,0.,0.,0.],split=False):
+    params=[2.,10.,0.5,0.5,0.01,0.99,0.01],split=False):
     '''triaxial_single_trunc_zvecpa:
     
     Triaxial truncated (density goes to 0 at some radius) density profile 
@@ -1030,32 +1109,24 @@ def triaxial_single_trunc_zvecpa(R,phi,z,
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    grid = False
-    theta = params[4]*2*np.pi
-    tz = (params[5]*2)-1
-    zvec = np.array([np.sqrt(1-tz**2)*np.cos(theta), np.sqrt(1-tz**2)*np.sin(theta), tz])
-    pa = (params[6]*np.pi)
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
-    x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    x, y, z = transform_zvecpa(np.dstack([x,y,z])[0], zvec,pa)
-    xsun,ysun,zsun = transform_zvecpa([_ro,0.,_zo],zvec,pa)
-    r_e = np.sqrt(x**2+y**2/params[2]**2+z**2/params[3]**2)
-    r_e_sun = np.sqrt(xsun**2+ysun**2/params[2]**2+zsun**2/params[3]**2)
+    alpha,r1,p,q,theta,eta,pa = denormalize_parameters(
+        params, triaxial_single_trunc_zvecpa)[0]
+    R,phi,z,grid,dim = check_grid(R,phi,z)
+    r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
+    
     dens = np.zeros(len(r_e))
-    dens[r_e < params[1]] = (r_e[r_e < params[1]])**(-params[0])
-    dens[r_e > params[1]] = 0
-    sundens = (r_e_sun)**(-params[0])
+    inner_mask = r_e <= r1
+    outer_mask = r_e > r1
+    dens[inner_mask] = (r_e[inner_mask])**(-alpha)
+    dens[outer_mask] = 0
+    sundens = (r_e_sun)**(-alpha)
     dens = dens/sundens
     if grid:
         dens = dens.reshape(dim)
     return dens
 
-def exp_disk(R,phi,z,params=[1/1.8,1/0.8]):
+
+def exp_disk(R,phi,z,params=[1/2.,1/0.8]):
     '''exp_disk:
     
     Exponential disk
@@ -1069,15 +1140,18 @@ def exp_disk(R,phi,z,params=[1/1.8,1/0.8]):
     Returns:
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    hr = params[0]
-    hz = params[1]
+    hr,hz = params
+    R,phi,z,grid,dim = check_grid(R,phi,z)
     diskdens = np.exp(-hr*(R-_ro)-hz*np.fabs(z))
     diskdens_sun = np.exp(-hr*(_ro-_ro)-hz*np.fabs(_zo))
-    return diskdens/diskdens_sun
+    diskdens = diskdens/diskdens_sun
+    if grid:
+        diskdens = diskdens.reshape(dim)
+    return diskdens
 
 
 def triaxial_single_angle_zvecpa_plusexpdisk(R,phi,z,
-    params=[2.,0.5,0.5,0.,0.,0.,0.01],split=False):
+    params=[2.,0.5,0.5,0.01,0.99,0.01,0.01],split=False):
     '''triaxial_single_angle_zvecpa_plusexpdisk:
     
     Triaxial power-law density profile rotated using the zvec-pa scheme 
@@ -1105,47 +1179,19 @@ def triaxial_single_angle_zvecpa_plusexpdisk(R,phi,z,
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    hr = 1/2. # Fixed disk parameters
-    hz = 1/0.8
-    original_z = np.copy(z)
-    grid = False
-    theta = params[3]*2*np.pi
-    tz = (params[4]*2)-1
-    zvec = np.array([np.sqrt(1-tz**2)*np.cos(theta),
-                     np.sqrt(1-tz**2)*np.sin(theta), 
-                     tz])
-    pa = (params[5]*np.pi)#-np.pi/2.
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
-        original_z = original_z.reshape(np.product(dim))
-    x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    x, y, z = transform_zvecpa(np.dstack([x,y,z])[0], zvec,pa)
-    xsun,ysun,zsun = transform_zvecpa([_ro,0.,_zo],zvec,pa)
-    r_e = np.sqrt(x**2+y**2/params[1]**2+z**2/params[2]**2)
-    r_e_sun = np.sqrt(xsun**2+ysun**2/params[1]**2+zsun**2/params[2]**2)
-    diskdens = np.exp(-hr*(R-_ro)-hz*np.fabs(original_z))
-    diskdens_sun = np.exp(-hr*(_ro-_ro)-hz*np.fabs(_zo))
-    dens = (r_e)**(-params[0])
-    sundens = (r_e_sun)**(-params[0])
+    fdisk = denormalize_parameters(
+        params, triaxial_single_angle_zvecpa_plusexpdisk)[0][-1]
+    dens = triaxial_single_angle_zvecpa(R,phi,z,params=params[:-1])
+    hr,hz = get_default_thick_disk_params()
+    diskdens = exp_disk(R,phi,z,[hr,hz])
     if split:
-        dens, diskdens = (1-params[6])*dens/sundens, (params[6])*diskdens/diskdens_sun
-        if grid:
-            dens = dens.reshape(dim)
-            diskdens = diskdens.reshape(dim)
-        return dens, diskdens
+        return (1-fdisk)*dens, fdisk*diskdens
     else:
-        dens = (1-params[6])*dens/sundens+(params[6]*diskdens/diskdens_sun)
-        #dens = ((1-params[6])*dens+params[6]*diskdens)/((1-params[6])*sundens+params[6]*diskdens_sun)
-        if grid:
-            dens = dens.reshape(dim)
-        return dens
+        return (1-fdisk)*dens+fdisk*diskdens
+
 
 def triaxial_single_cutoff_zvecpa_plusexpdisk(R,phi,z,
-    params=[2.,1.,0.5,0.5,0.,0.,0.,0.01],split=False):
+    params=[2.,0.1,0.5,0.5,0.01,0.99,0.01,0.01],split=False):
     '''triaxial_single_cutoff_zvecpa_plusexpdisk:
     
     Triaxial power-law density profile with exponential cutoff rotated using 
@@ -1175,9 +1221,30 @@ def triaxial_single_cutoff_zvecpa_plusexpdisk(R,phi,z,
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    # params[1] = 0. # Test
-    hr = 1/2. # Fixed disk parameters
-    hz = 1/0.8
+    fdisk = denormalize_parameters(
+        params, triaxial_single_cutoff_zvecpa_plusexpdisk)[0][-1]
+    dens = triaxial_single_cutoff_zvecpa(R,phi,z,params=params[:-1])
+    hr,hz = get_default_thick_disk_params()
+    diskdens = exp_disk(R,phi,z,[hr,hz])
+    if split:
+        return (1-fdisk)*dens, fdisk*diskdens
+    else:
+        return (1-fdisk)*dens+fdisk*diskdens
+
+    
+def triaxial_single_cutoff_zvecpa_plusexpdisk_mackereth(R,phi,z,params=[2.,1.,0.5,0.5,0.,0.,0.,0.01],split=False):
+    """
+    triaxial power law, with zvec,pa rotation and expdisk contaminant
+    INPUT
+        R, phi, z - Galactocentric cylindrical coordinates
+        params - [alpha,beta,p,q,theta,phi,pa,fdisc]
+    OUTPUT
+        density at R, phi, z
+    """
+    #_R0 = 8.125 # Gravity Collab.
+    #_z0 = 0.02 #bennett and bovy
+    _R0 = 8.275 # Gravity Collab.
+    _z0 = 0.0208 #bennett and bovy
     original_z = np.copy(z)
     grid = False
     theta = params[4]*2*np.pi
@@ -1212,9 +1279,10 @@ def triaxial_single_cutoff_zvecpa_plusexpdisk(R,phi,z,
             dens = dens.reshape(dim)
         return dens
 
+
 def triaxial_broken_angle_zvecpa_plusexpdisk(R,phi,z,
-    params=[2.,3.,5.,0.5,0.5,0.,0.,0.,0.01],split=False):
-    '''triaxial_broken_angle_zvecpa_zvecpa_plusexpdisk:
+    params=[2.,3.,10.,0.5,0.5,0.01,0.99,0.01,0.01],split=False):
+    '''triaxial_broken_angle_zvecpa_plusexpdisk:
     
     Triaxial broken angle power-law density profile rotated using the zvec-pa 
     scheme (see transform_zvecpa) with exponential disk contamination. Note 
@@ -1243,46 +1311,63 @@ def triaxial_broken_angle_zvecpa_plusexpdisk(R,phi,z,
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    hr = 1/2. # Fixed disk parameters
-    hz = 1/0.8
-    original_z = np.copy(z)
-    grid = False
-    theta = params[5]*2*np.pi
-    tz = (params[6]*2)-1
-    zvec = np.array([np.sqrt(1-tz**2)*np.cos(theta), np.sqrt(1-tz**2)*np.sin(theta), tz])
-    pa = (params[7]*np.pi)
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
-        original_z = original_z.reshape(np.product(dim))
-    x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    x, y, z = transform_zvecpa(np.dstack([x,y,z])[0], zvec,pa)
-    xsun,ysun,zsun = transform_zvecpa([_ro,0.,_zo],zvec,pa)
-    r_e = np.sqrt(x**2+y**2/params[3]**2+z**2/params[4]**2)
-    r_e_sun = np.sqrt(xsun**2+ysun**2/params[3]**2+zsun**2/params[4]**2)
-    diskdens = np.exp(-hr*(R-_ro)-hz*np.fabs(original_z))
-    diskdens_sun = np.exp(-hr*(_ro-_ro)-hz*np.fabs(_zo))
-    dens = np.zeros(len(r_e))
-    dens[r_e < params[2]] = (r_e[r_e < params[2]])**(-params[0])
-    dens[r_e > params[2]] = (params[2])**(params[1]-params[0])*(r_e[r_e > params[2]])**(-params[1])
-    if params[2] < r_e_sun:
-        sundens = (params[2])**(params[1]-params[0])*(r_e_sun)**(-params[1])
-    else:
-        sundens = (r_e_sun)**(-params[0])
+    fdisk = denormalize_parameters(
+        params, triaxial_broken_angle_zvecpa_plusexpdisk)[0][-1]
+    dens = triaxial_broken_angle_zvecpa(R,phi,z,params=params[:-1])
+    hr,hz = get_default_thick_disk_params()
+    diskdens = exp_disk(R,phi,z,[hr,hz])
     if split:
-        dens, diskdens = (1-params[8])*dens/sundens, (params[8])*diskdens/diskdens_sun
-        if grid:
-            dens = dens.reshape(dim)
-            diskdens = diskdens.reshape(dim)
-        return dens, diskdens
+        return (1-fdisk)*dens, fdisk*diskdens
     else:
-        dens = (1-params[8])*dens/sundens+(params[8]*diskdens/diskdens_sun)
-        if grid:
-            dens = dens.reshape(dim)
-        return dens
+        return (1-fdisk)*dens+fdisk*diskdens
+
+
+def triaxial_double_broken_angle_zvecpa_plusexpdisk(R,phi,z,
+    params=[2.,3.,4.,10.,20.,0.5,0.5,0.01,0.99,0.01,0.01],split=False):
+    '''triaxial_double_broken_angle_zvecpa_plusexpdisk:
+    
+    Triaxial double broken angle power-law density profile rotated using the 
+    zvec-pa scheme (see transform_zvecpa) with exponential disk contamination. 
+    Note that zvec is parameterized using two parameters eta and theta as 
+    follows:
+    
+    zvec = [ sqrt(1-eta^2)*cos(theta) ]
+           [ sqrt(1-eta^2)*sin(theta) ]
+           [ eta                      ]
+    
+    Note that the parameters for the disk are fixed
+    
+    Args: 
+        R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
+        params (float array) - [alpha,beta,p,q,eta,theta,pa,fdisk]
+            alpha_in (float) - Inner power law index
+            alpha_mid (float) - Middle power law index
+            alpha_out (float) - Outer power law index
+            r1 (float) - Radius where the power law index changes from inner
+                to middle
+            r2 (float) - Radius where the power law index changes from middle 
+                to outer
+            p (float) - Ratio of Y to X scale lengths
+            q (float) - Ratio of Z to X scale lengths
+            theta (float) - Sets scale / orientation of zvec in XY plane
+            eta (float) - Sets scale of zvec along Z-axis
+            pa (float) - Final rotation angle
+            fdisk (float) - Fraction of density at the location of the Sun
+                contained in the disk, halo density fraction is then (1-fdisk)
+        
+    Returns
+        dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
+    '''
+    fdisk = denormalize_parameters(
+        params, triaxial_double_broken_angle_zvecpa_plusexpdisk)[0][-1]
+    dens = triaxial_double_broken_angle_zvecpa(R,phi,z,params=params[:-1])
+    hr,hz = get_default_thick_disk_params()
+    diskdens = exp_disk(R,phi,z,[hr,hz])
+    if split:
+        return (1-fdisk)*dens, fdisk*diskdens
+    else:
+        return (1-fdisk)*dens+fdisk*diskdens
+
 
 def triaxial_single_trunc_zvecpa_plusexpdisk(R,phi,z,
     params=[2.,10.,0.5,0.5,0.,0.,0.,0.01],split=False):
