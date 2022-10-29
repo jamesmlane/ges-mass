@@ -1400,43 +1400,57 @@ def triaxial_single_trunc_zvecpa_plusexpdisk(R,phi,z,
     Returns
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
-    hr = 1/2. # Fixed disk parameters
-    hz = 1/0.8
-    original_z = np.copy(z)
-    grid = False
-    theta = params[4]*2*np.pi
-    tz = (params[5]*2)-1
-    zvec = np.array([np.sqrt(1-tz**2)*np.cos(theta), np.sqrt(1-tz**2)*np.sin(theta), tz])
-    pa = (params[6]*np.pi)
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
-        original_z = original_z.reshape(np.product(dim))
-    x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    x, y, z = transform_zvecpa(np.dstack([x,y,z])[0], zvec,pa)
-    xsun,ysun,zsun = transform_zvecpa([_ro,0.,_zo],zvec,pa)
-    r_e = np.sqrt(x**2+y**2/params[2]**2+z**2/params[3]**2)
-    r_e_sun = np.sqrt(xsun**2+ysun**2/params[2]**2+zsun**2/params[3]**2)
-    diskdens = np.exp(-hr*(R-_ro)-hz*np.fabs(original_z))
-    diskdens_sun = np.exp(-hr*(_ro-_ro)-hz*np.fabs(_zo))
-    dens = np.zeros(len(r_e))
-    dens[r_e < params[1]] = (r_e[r_e < params[1]])**(-params[0])
-    dens[r_e > params[1]] = 0
-    sundens = (r_e_sun)**(-params[0])
+    fdisk = denormalize_parameters(
+        params, triaxial_single_trunc_zvecpa_plusexpdisk)[0][-1]
+    dens = triaxial_single_trunc_zvecpa(R,phi,z,params=params[:-1])
+    hr,hz = get_default_thick_disk_params()
+    diskdens = exp_disk(R,phi,z,[hr,hz])
     if split:
-        dens, diskdens = (1-params[7])*dens/sundens, (params[7])*diskdens/diskdens_sun
-        if grid:
-            dens = dens.reshape(dim)
-            diskdens = diskdens.reshape(dim)
-        return dens, diskdens
+        return (1-fdisk)*dens, fdisk*diskdens
     else:
-        dens = (1-params[7])*dens/sundens+(params[7]*diskdens/diskdens_sun)
-        if grid:
-            dens = dens.reshape(dim)
-        return dens
+        return (1-fdisk)*dens+fdisk*diskdens
+
+
+# def triaxial_single_angle_aby(R,phi,z,params=[2.,0.5,0.5,0.5,0.5,0.5]):
+#     '''triaxial_single_angle_aby:
+# 
+#     Triaxial power-law density profile rotated using the alpha-beta-gamma 
+#     scheme (see transform_aby)
+# 
+#     Args: 
+#         R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
+#         params (float array) - [alpha,p,q,A,B,Y]
+#             alpha (float) - Power law index
+#             p (float) - Ratio of Y to X scale lengths
+#             q (float) - Ratio of Z to X scale lengths
+#             A (float) - Alpha rotation angle
+#             B (float) - Beta rotation angle
+#             Y (float) - Gamma rotation angle
+# 
+#     Returns
+#         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
+#     '''
+#     grid = False
+#     # alpha = 0.9*np.pi*params[3]+0.05*np.pi-np.pi/2.
+#     # beta = 0.9*np.pi*params[4]+0.05*np.pi-np.pi/2.
+#     # gamma = 0.9*np.pi*params[5]+0.05*np.pi-np.pi/2.
+#     if np.ndim(R) > 1:
+#         grid = True
+#         dim = np.shape(R)
+#         R = R.reshape(np.product(dim))
+#         phi = phi.reshape(np.product(dim))
+#         z = z.reshape(np.product(dim))
+#     x, y, z = R*np.cos(phi), R*np.sin(phi), z
+#     x, y, z = transform_aby(np.dstack([x,y,z])[0], alpha,beta,gamma)
+#     xsun, ysun, zsun = transform_aby([_ro, 0., _zo],alpha,beta,gamma)
+#     r_e = np.sqrt(x**2+y**2/params[1]**2+z**2/params[2]**2)
+#     r_e_sun = np.sqrt(xsun**2+ysun**2/params[1]**2+zsun**2/params[2]**2)
+#     dens = (r_e)**(-params[0])
+#     sundens = (r_e_sun)**(-params[0])
+#     dens = dens/sundens
+#     if grid:
+#         dens = dens.reshape(dim)
+#     return dens
 
 # def triaxial_einasto_zvecpa(R,phi,z,params=[10.,3.,0.8,0.8,0.,0.99,0.]):
 #     """
