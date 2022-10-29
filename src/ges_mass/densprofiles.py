@@ -415,19 +415,22 @@ def get_densfunc_nodisk(densfunc):
             have a disk component
     '''
     densfuncs_nodisk_already = [spherical, spherical_cutoff, axisymmetric, 
-                                triaxial_norot, triaxial_single_angle_aby,
+                                triaxial_norot,
                                 triaxial_single_angle_zvecpa, 
                                 triaxial_single_cutoff_zvecpa, 
-                                triaxial_broken_angle_zvecpa, 
+                                triaxial_broken_angle_zvecpa,
+                                triaxial_double_broken_angle_zvecpa,
                                 triaxial_single_trunc_zvecpa]
     if densfunc in densfuncs_nodisk_already:
         return densfunc
-    elif densfunc == triaxial_broken_angle_zvecpa_plusexpdisk:
-        return triaxial_broken_angle_zvecpa
     elif densfunc == triaxial_single_angle_zvecpa_plusexpdisk:
         return triaxial_single_angle_zvecpa
     elif densfunc == triaxial_single_cutoff_zvecpa_plusexpdisk:
         return triaxial_single_cutoff_zvecpa
+    elif densfunc == triaxial_broken_angle_zvecpa_plusexpdisk:
+        return triaxial_broken_angle_zvecpa
+    elif densfunc == triaxial_double_broken_angle_zvecpa_plusexpdisk:
+        return triaxial_double_broken_angle_zvecpa
     elif densfunc == triaxial_single_trunc_zvecpa_plusexpdisk:
         return triaxial_single_trunc_zvecpa
     elif densfunc == exp_disk:
