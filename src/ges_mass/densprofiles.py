@@ -992,7 +992,7 @@ def triaxial_broken_angle_zvecpa(R,phi,z,
         params (float array) - [alpha,beta,p,q,eta,theta,pa,fdisk]
             alpha_in (float) - Inner power law index
             alpha_out (float) - Outer power law index
-            beta (float) - Radius where the power law index changes
+            r1 (float) - Radius where the power law index changes
             p (float) - Ratio of Y to X scale lengths
             q (float) - Ratio of Z to X scale lengths
             theta (float) - Sets scale / orientation of zvec in XY plane
@@ -1098,7 +1098,7 @@ def triaxial_single_trunc_zvecpa(R,phi,z,
         R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
         params (float array) - [alpha,beta,p,q,eta,theta,pa,fdisk]
             alpha (float) - power law index
-            beta (float) - Radius where the density profile goes to 0
+            r1 (float) - Radius where the density profile goes to 0
             p (float) - Ratio of Y to X scale lengths
             q (float) - Ratio of Z to X scale lengths
             theta (float) - Sets scale / orientation of zvec in XY plane
@@ -1299,7 +1299,7 @@ def triaxial_broken_angle_zvecpa_plusexpdisk(R,phi,z,
         params (float array) - [alpha,beta,p,q,eta,theta,pa,fdisk]
             alpha_in (float) - Inner power law index
             alpha_out (float) - Outer power law index
-            beta (float) - Radius where the power law index changes
+            r1 (float) - Radius where the power law index changes
             p (float) - Ratio of Y to X scale lengths
             q (float) - Ratio of Z to X scale lengths
             theta (float) - Sets scale / orientation of zvec in XY plane
@@ -1388,7 +1388,7 @@ def triaxial_single_trunc_zvecpa_plusexpdisk(R,phi,z,
         R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
         params (float array) - [alpha,beta,p,q,eta,theta,pa,fdisk]
             alpha (float) - Inner power law index
-            beta (float) - Radius where the density goes to 0
+            r1 (float) - Radius where the density goes to 0
             p (float) - Ratio of Y to X scale lengths
             q (float) - Ratio of Z to X scale lengths
             theta (float) - Sets scale / orientation of zvec in XY plane
