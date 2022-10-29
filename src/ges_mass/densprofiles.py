@@ -14,8 +14,15 @@ from scipy.optimize import newton
 from scipy.special import erfinv
 import warnings
 
+# Scales
 _ro = 8.275 # Gravity Collab.
 _zo = 0.0208 # Bennett and Bovy
+
+# Normalization convention
+norm_eta = lambda x : x # (x+1)/2
+denorm_eta = lambda x : x # 2*x-1
+theta_scale = 2*np.pi
+phi_scale = np.pi
 
 # Utilities for normalization and unit conversion
 
