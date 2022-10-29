@@ -133,84 +133,123 @@ def denormalize_parameters(params,model):
     Returns:
         params (list) - Density function parameters
     '''
+    # params should be 2d for indexing
+    params = np.atleast_2d(params)
+    
     # Non-rotated density profiles have trivial transformations
     if model.__name__ == 'spherical':
-        params_out = [params[0],]
+        params_out = np.array([params[:,0],]).T
     if model.__name__ == 'spherical_cutoff':
-        params_out = [params[0],params[1]]
+        params_out = np.array([params[:,0],params[:,1]]).T
     if model.__name__ == 'axisymmetric':
-        params_out = [params[0],params[1],]
+        params_out = np.array([params[:,0],params[:,1],]).T
     if model.__name__ == 'triaxial_norot':
-        params_out = [params[0],params[1],params[2]]
+        params_out = np.array([params[:,0],params[:,1],params[:,2]]).T
         
     if 'triaxial_single_angle_zvecpa' in model.__name__:
         # params are [alpha,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
-        params_out = np.array([params[0], params[1], params[2],
-                               params[3]*(2*np.pi), (params[4]*2.-1.), 
-                               params[5]*np.pi])
+        params_out = np.array([params[:,0],
+                               params[:,1],
+                               params[:,2],
+                               params[:,3]*theta_scale,
+                               denorm_eta(params[:,4]),
+                               params[:,5]*phi_scale
+                              ]).T
     if 'triaxial_single_cutoff_zvecpa' in model.__name__:
         # params are [alpha,beta,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
-        params_out = np.array([params[0], params[1], params[2], params[3],
-                               params[4]*(2*np.pi), (params[5]*2.-1.), 
-                               params[6]*np.pi])
+        params_out = np.array([params[:,0],
+                               params[:,1],
+                               params[:,2],
+                               params[:,3],
+                               params[:,4]*theta_scale,
+                               denorm_eta(params[:,5]),
+                               params[:,6]*phi_scale
+                              ]).T
     if 'triaxial_broken_angle_zvecpa' in model.__name__:
         # params are [alpha_in,alpha_out,beta,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
-        params_out = np.array([params[0], params[1], params[2], params[3], 
-                               params[4], params[5]*(2*np.pi), 
-                               (params[6]*2.-1.), params[7]*np.pi])
+        params_out = np.array([params[:,0],
+                               params[:,1],
+                               params[:,2],
+                               params[:,3],
+                               params[:,4],
+                               params[:,5]*theta_scale,
+                               denorm_eta(params[:,6]),
+                               params[:,7]*phi_scale
+                              ]).T
+    if 'triaxial_double_broken_angle_zvecpa' in model.__name__:
+        # params are [alpha_in,alpha_mid,alpha_out,r1,r2,p,q,theta,eta,pa]
+        # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
+        params_out = np.array([params[:,0],
+                               params[:,1],
+                               params[:,2],
+                               params[:,3],
+                               params[:,4],
+                               params[:,5],
+                               params[:,6],
+                               params[:,7]*theta_scale,
+                               denorm_eta(params[:,8]),
+                               params[:,9]*phi_scale
+                              ]).T
     if 'triaxial_single_trunc_zvecpa' in model.__name__:
         # params are [alpha,beta,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
-        params_out = np.array([params[0], params[1], params[2], params[3],
-                               params[4]*(2*np.pi), (params[5]*2.-1.), 
-                               params[6]*np.pi])
-        
+        params_out = np.array([params[:,0],
+                               params[:,1],
+                               params[:,2],
+                               params[:,3],
+                               params[:,4]*theta_scale,
+                               denorm_eta(params[:,5]),
+                               params[:,6]*phi_scale
+                              ]).T
+    
     if 'plusexpdisk' in model.__name__:
         # Add the disk contamination fraction, assume it's the last parameter
-        params_out = np.concatenate((params_out,params[-1]))
-        
+        params_out = np.concatenate((params_out,
+                                     np.atleast_2d(params[:,-1]).T),
+                                    axis=1)
+    
     return params_out
 
 # Utilities for transformations
 
-def transform_aby(xyz,alpha,beta,gamma):
-    '''transform_aby:
+# def transform_aby(xyz,alpha,beta,gamma):
+#     '''transform_aby:
 
-    Transform xyz coordinates by rotation around x-axis (alpha), transformed 
-    y-axis (beta) and twice transformed z-axis (gamma)
+#     Transform xyz coordinates by rotation around x-axis (alpha), transformed 
+#     y-axis (beta) and twice transformed z-axis (gamma)
     
-    Args:
-        xyz (np.array) - Galactocentric coordinate array
-        alpha (float) - X-axis rotation angle
-        beta (float) - Transformed Y-axis rotation angle
-        gamma (float) - Twice-transformed Z-axis rotation angle
+#     Args:
+#         xyz (np.array) - Galactocentric coordinate array
+#         alpha (float) - X-axis rotation angle
+#         beta (float) - Transformed Y-axis rotation angle
+#         gamma (float) - Twice-transformed Z-axis rotation angle
     
-    Returns:
-        x,y,z (np.arrays) - Galactocentric rectangular coordinates
-    '''
-    Rx = np.zeros([3,3])
-    Ry = np.zeros([3,3])
-    Rz = np.zeros([3,3])
-    Rx[0,0] = 1
-    Rx[1] = [0, np.cos(alpha), -np.sin(alpha)]
-    Rx[2] = [0, np.sin(alpha), np.cos(alpha)]
-    Ry[0] = [np.cos(beta), 0, np.sin(beta)]
-    Ry[1,1] = 1
-    Ry[2] = [-np.sin(beta), 0, np.cos(beta)]
-    Rz[0] = [np.cos(gamma), -np.sin(gamma), 0]
-    Rz[1] = [np.sin(gamma), np.cos(gamma), 0]
-    Rz[2,2] = 1
-    R = np.matmul(Rx,np.matmul(Ry,Rz))
-    if np.ndim(xyz) == 1:
-        tgalcenrect = np.dot(R, xyz)
-        x, y, z = tgalcenrect[0], tgalcenrect[1], tgalcenrect[2]
-    else:
-        tgalcenrect = np.einsum('ij,aj->ai', R, xyz)
-        x, y, z = tgalcenrect[:,0], tgalcenrect[:,1], tgalcenrect[:,2]
-    return x, y, z
+#     Returns:
+#         x,y,z (np.arrays) - Galactocentric rectangular coordinates
+#     '''
+#     Rx = np.zeros([3,3])
+#     Ry = np.zeros([3,3])
+#     Rz = np.zeros([3,3])
+#     Rx[0,0] = 1
+#     Rx[1] = [0, np.cos(alpha), -np.sin(alpha)]
+#     Rx[2] = [0, np.sin(alpha), np.cos(alpha)]
+#     Ry[0] = [np.cos(beta), 0, np.sin(beta)]
+#     Ry[1,1] = 1
+#     Ry[2] = [-np.sin(beta), 0, np.cos(beta)]
+#     Rz[0] = [np.cos(gamma), -np.sin(gamma), 0]
+#     Rz[1] = [np.sin(gamma), np.cos(gamma), 0]
+#     Rz[2,2] = 1
+#     R = np.matmul(Rx,np.matmul(Ry,Rz))
+#     if np.ndim(xyz) == 1:
+#         tgalcenrect = np.dot(R, xyz)
+#         x, y, z = tgalcenrect[0], tgalcenrect[1], tgalcenrect[2]
+#     else:
+#         tgalcenrect = np.einsum('ij,aj->ai', R, xyz)
+#         x, y, z = tgalcenrect[:,0], tgalcenrect[:,1], tgalcenrect[:,2]
+#     return x, y, z
 
 def transform_zvecpa(xyz,zvec,pa):
     '''transform_zvecpa:
