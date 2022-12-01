@@ -12,6 +12,10 @@ NDMOD = 301
 DMOD_MIN = 7
 DMOD_MAX = 19
 
+# Distribution function keywords
+DF_VERSION = v1_alpha35_rc30
+KSF_VERSION = v1_beta_03_08_5050mix
+
 # Isochrone masking
 LOGG_MIN = 1.0
 LOGG_MAX = 3.0
