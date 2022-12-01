@@ -807,7 +807,9 @@ def is_in_ellipse(x,y,ellipse_cent,ellipse_ab):
 
 # Plotting for KSF creation
 
-def plot_completeness_purity_distance_spline(xs,ys,spl,mock_xs,spl_type):
+def plot_completeness_purity_distance_spline(xs,ys,spl,mock_xs,spl_type,
+                                             spl_color='DodgerBlue',fig=None,
+                                             ax=None):
     '''plot_completeness_purity_distance_spline:
     
     Make a plot of the completeness-distance spline or purity-distance spline.
@@ -819,6 +821,10 @@ def plot_completeness_purity_distance_spline(xs,ys,spl,mock_xs,spl_type):
             spline
         mock_xs (np array) - Distances at which spline should be evaluated
         spl_type (string) - either 'completeness' or 'purity'
+        spl_color (string) - Spline color [default 'DodgerBlue']
+        fig (matplotlib Figure) - Figure object [default None, makes fig]
+        ax (matplotlib Axis) - Axis object [default None, makes ax]
+        
         
     Returns:
         fig (matplotlib Figure) - Figure object
@@ -826,10 +832,11 @@ def plot_completeness_purity_distance_spline(xs,ys,spl,mock_xs,spl_type):
     '''
     assert spl_type in ['completeness','purity'],\
         "spl_type must be 'completeness' or 'purity'"
-    fig = plt.figure(figsize=(3,2))
-    ax = fig.add_subplot(111)
+    if fig == None or ax == None:
+        fig = plt.figure(figsize=(3,2))
+        ax = fig.add_subplot(111)
     ax.scatter( xs, ys, s=4, color='Black' )
-    ax.plot( mock_xs, spl(mock_xs), color='DodgerBlue', zorder=2, linestyle='solid' )
+    ax.plot( mock_xs, spl(mock_xs), color=spl_color, zorder=2, linestyle='solid')
     ax.set_xlabel(r'$\log_{10}$(Distance/kpc)', fontsize=8)
     ax.set_ylabel(spl_type.capitalize(), fontsize=8)
     fig.tight_layout()
