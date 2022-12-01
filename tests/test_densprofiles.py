@@ -3,6 +3,7 @@ import sys
 import pdb
 sys.path.insert(0,'../src/')
 from ges_mass import densprofiles as pdens
+from ges_mass import mass as pmass
 
 ## Test density profile basic properties
 
@@ -14,16 +15,18 @@ def test_densprofile_zero_at_infinity():
     dps = [pdens.triaxial_single_angle_zvecpa,
            pdens.triaxial_single_cutoff_zvecpa,
            pdens.triaxial_broken_angle_zvecpa,
+           pdens.triaxial_double_broken_angle_zvecpa,
            pdens.triaxial_single_trunc_zvecpa]
     ddps = [pdens.triaxial_single_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_cutoff_zvecpa_plusexpdisk,
             pdens.triaxial_broken_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_double_broken_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_trunc_zvecpa_plusexpdisk]
-    dargs = [[2.,0.5,0.7,0.5,0.5,0.5], # alpha, p, q, theta, eta, phi
-             [3.5,0.1,1.,1.,0.5,0.5,0.5], # alpha, beta, p, q, theta, eta, phi
-             [2.,4.,20.,0.8,0.5,0.5,0.5,0.5], # alpha_in, alpha_out, beta, p, q, theta, eta, phi
-             [5.,20.,0.4,0.8,0.5,0.5,0.5] # alpha, beta, p, q, theta, eta, phi
-            ]
+    dargs = [[2.,0.5,0.7,0.5,0.5,0.5], # a,p,q,th,et,pa
+             [3.5,0.1,1.,1.,0.5,0.5,0.5], # a,b,p,q,th,et,pa
+             [2.,4.,20.,0.8,0.5,0.5,0.5,0.5], # a1,a2,r1,p,q,th,et,pa
+             [2.,3.,4.,20.,40.,0.8,0.5,0.5,0.5,0.5], # a1,a2,a3,r1,r2,p,q,th,et,pa
+             [5.,20.,0.4,0.8,0.5,0.5,0.5]] # a,r,p,q,th,et,pa
     
     for i in range(len(dps)):
         # Non disk profiles
@@ -43,23 +46,26 @@ def test_densprofile_zero_at_infinity():
             'Densprofile '+str(ddps[i].__name__)+' does not go to '+\
             '0 at z=infinity'
 
-# Test power law equivalent for p=q=1 triaxial density profiles
+
+# Test power law equivalence for p=q=1 triaxial density profiles
 def test_triaxial_densprofile_power_law_equivalent():
     tol = 1e-8
     
     dps = [pdens.triaxial_single_angle_zvecpa,
            pdens.triaxial_single_cutoff_zvecpa,
            pdens.triaxial_broken_angle_zvecpa,
+           pdens.triaxial_double_broken_angle_zvecpa,
            pdens.triaxial_single_trunc_zvecpa]
     ddps = [pdens.triaxial_single_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_cutoff_zvecpa_plusexpdisk,
             pdens.triaxial_broken_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_double_broken_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_trunc_zvecpa_plusexpdisk]
-    dargs = [[2.,1.,1.,0.5,0.5,0.5], # alpha, p, q, theta, eta, phi
-             [3.5,1e-10,1.,1.,0.5,0.5,0.5], # alpha, beta, p, q, theta, eta, phi
-             [4.,4.,20.,1.,1.,0.5,0.5,0.5], # alpha_in, alpha_out, beta, p, q, theta, eta, phi
-             [5.,1e10,1.,1.,0.5,0.5,0.5] # alpha, beta, p, q, theta, eta, phi
-            ]
+    dargs = [[2.,1.,1.,0.5,0.5,0.5], # a,p,q,th,et,pa
+             [3.5,1e-10,1.,1.,0.5,0.5,0.5], # a,b,p,q,th,et,pa
+             [4.,4.,20.,1.,1.,0.5,0.5,0.5], # a1,a2,r,p,q,th,et,pa
+             [4.,4.,4.,20.,40.,1.,1.,0.5,0.5,0.5], # a1,a2,a3,r1,r2,p,q,th,et,pa
+             [5.,1e10,1.,1.,0.5,0.5,0.5]] # a,r,p,q,th,et,pa
     
     rs = np.linspace(0.1,100.,num=5)
     zero = np.zeros_like(rs)
@@ -87,21 +93,25 @@ def test_triaxial_densprofile_power_law_equivalent():
             'corresponding spherical power law when p=q=1, fdisc=0. along '+\
             'z range'
 
+
 # Test spherical symmetry for p=q=1 triaxial density profiles
 def test_triaxial_densprofile_spherical_symmetry():
     tol = 1e-10
     dps = [pdens.triaxial_single_angle_zvecpa,
            pdens.triaxial_single_cutoff_zvecpa,
            pdens.triaxial_broken_angle_zvecpa,
+           pdens.triaxial_double_broken_angle_zvecpa,
            pdens.triaxial_single_trunc_zvecpa]
     ddps = [pdens.triaxial_single_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_cutoff_zvecpa_plusexpdisk,
             pdens.triaxial_broken_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_double_broken_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_trunc_zvecpa_plusexpdisk]
-    dargs = [[2.,1.,1.,0.5,0.5,0.5], # alpha, p, q, theta, eta, phi
-             [3.5,1e-10,1.,1.,0.5,0.5,0.5], # alpha, beta, p, q, theta, eta, phi
-             [2.,4.,20.,1.,1.,0.5,0.5,0.5], # alpha_in, alpha_out, beta, p, q, theta, eta, phi
-             [2.,1e10,1.,1.,0.5,0.5,0.5] # alpha, beta, p, q, theta, eta, phi
+    dargs = [[2.,1.,1.,0.5,0.5,0.5], # a,p,q,th,et,pa
+             [3.5,1e-10,1.,1.,0.5,0.5,0.5], # a,b,p,q,th,et,pa
+             [2.,4.,20.,1.,1.,0.5,0.5,0.5], # a1,a2,r,p,q,th,et,pa
+             [2.,3.,4.,20.,40.,1.,1.,0.5,0.5,0.5], # a1,a2,a3,r1,r2,p,q,th,et,pa
+             [2.,1e10,1.,1.,0.5,0.5,0.5] # a,r,p,q,th,et,pa
             ]
     rs = np.linspace(0.1,100.,num=5)
     phis = np.linspace(0.,2*np.pi,num=11)
@@ -121,23 +131,27 @@ def test_triaxial_densprofile_spherical_symmetry():
                 'Densprofile '+str(ddps[i].__name__)+' is not '+\
                 'spherically symmetric when p=q=1, fdisc=0.'
 
+
 # Test that the density profiles behave predictably when theta changed.
-# theta=0. should equal theta=1. theta=0.
+# theta=0. should equal theta=1
 def test_triaxial_densprofile_theta_rotation():
     tol = 1e-10
     
     dps = [pdens.triaxial_single_angle_zvecpa,
            pdens.triaxial_single_cutoff_zvecpa,
            pdens.triaxial_broken_angle_zvecpa,
+           pdens.triaxial_double_broken_angle_zvecpa,
            pdens.triaxial_single_trunc_zvecpa]
     ddps = [pdens.triaxial_single_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_cutoff_zvecpa_plusexpdisk,
             pdens.triaxial_broken_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_double_broken_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_trunc_zvecpa_plusexpdisk]
-    dargs = [[2.,0.8,0.4,0.,0.5,0.], # alpha, p, q, theta, eta, phi
-             [3.5,1e-10,0.5,0.6,0.,0.5,0.], # alpha, beta, p, q, theta, eta, phi
-             [2.,4.,20.,0.7,0.3,0.,0.5,0.], # alpha_in, alpha_out, beta, p, q, theta, eta, phi
-             [2.,1e10,0.2,0.9,0.,0.5,0.] # alpha, beta, p, q, theta, eta, phi
+    dargs = [[2.,0.8,0.4,0.,0.5,0.], # a,p,q,th,et,pa
+             [3.5,1e-10,0.5,0.6,0.,0.5,0.], # a,b,p,q,th,et,pa
+             [2.,4.,20.,0.7,0.3,0.,0.5,0.], # a1,a2,r,p,q,th,et,pa
+             [2.,3.,4.,20.,40.,0.6,0.9,0.,0.5,0.5], # a1,a2,a3,r1,r2,p,q,th,et,pa
+             [2.,1e10,0.2,0.9,0.,0.5,0.] # a,r,p,q,th,et,pa
             ]
             
     rs = np.linspace(0.1,100.,num=11)
@@ -151,7 +165,8 @@ def test_triaxial_densprofile_theta_rotation():
         rho_rot = dps[i](rs,phis,zs,darg_rot)
         assert np.all(np.fabs((rho-rho_rot)/rho)<tol),\
             'Densprofile '+str(dps[i].__name__)+' is not '+\
-            'invariant under a rotation of phi=pi'
+            'invariant under a rotation of theta=2pi'
+
 
 # Test that the density profiles behave predictably when phi changed.
 # phi=0. should equal phi=1.
@@ -161,15 +176,18 @@ def test_triaxial_densprofile_phi_rotation():
     dps = [pdens.triaxial_single_angle_zvecpa,
            pdens.triaxial_single_cutoff_zvecpa,
            pdens.triaxial_broken_angle_zvecpa,
+           pdens.triaxial_double_broken_angle_zvecpa,
            pdens.triaxial_single_trunc_zvecpa]
     ddps = [pdens.triaxial_single_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_cutoff_zvecpa_plusexpdisk,
             pdens.triaxial_broken_angle_zvecpa_plusexpdisk,
+            pdens.triaxial_double_broken_angle_zvecpa_plusexpdisk,
             pdens.triaxial_single_trunc_zvecpa_plusexpdisk]
-    dargs = [[2.,0.8,0.4,0.5,0.5,0.], # alpha, p, q, theta, eta, phi
-             [3.5,1e-10,0.5,0.6,0.5,0.5,0.], # alpha, beta, p, q, theta, eta, phi
-             [2.,4.,20.,0.7,0.3,0.5,0.5,0.], # alpha_in, alpha_out, beta, p, q, theta, eta, phi
-             [2.,1e10,0.2,0.9,0.5,0.5,0.] # alpha, beta, p, q, theta, eta, phi
+    dargs = [[2.,0.8,0.4,0.5,0.5,0.], # a,p,q,th,et,pa
+             [3.5,1e-10,0.5,0.6,0.5,0.5,0.], # a,b,p,q,th,et,pa
+             [2.,4.,20.,0.7,0.3,0.5,0.5,0.], # a1,a2,r,p,q,th,et,pa
+             [2.,3.,4.,20.,40.,0.6,0.9,0.5,0.5,0.], # a1,a2,a3,r1,r2,p,q,th,et,pa
+             [2.,1e10,0.2,0.9,0.5,0.5,0.] # a,r,p,q,th,et,pa
             ]
             
     rs = np.linspace(0.1,100.,num=11)
