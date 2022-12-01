@@ -30,3 +30,6 @@ legend.framealpha    : 1.0
 legend.facecolor     : white
 legend.edgecolor     : black
 legend.fancybox      : True
+
+# Make sure to use special math packages
+text.latex.preamble : \usepackage{amssymb} \usepackage{amsmath}
