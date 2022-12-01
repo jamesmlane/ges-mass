@@ -89,6 +89,7 @@ def xyz_to_Rphiz(x,y,z):
     phi = np.arctan2(y,x)
     return R,phi,z
 
+
 def Rphiz_to_xyz(R,phi,z):
     '''Rphi_to_xyz:
     
@@ -104,23 +105,147 @@ def Rphiz_to_xyz(R,phi,z):
     y = R*np.sin(phi)
     return x,y,z
 
-def plot_density_xyz(model,params,n=100,scale=20.,fig=None,axs=None):
-    '''plot_density_xyz:
+
+def plot_corner(hf,samples=None,plot_mass=False,thin=None,thin_to=None,
+                quantiles=[0.16,0.5,0.84],show_titles=True,corner_kwargs={}, 
+                truths='None'):
+    '''plot_corner:
     
-    Plot XYZ plane views of a density profile
+    Plot posterior samples
     
     Args:
-        model (callable) - Density function that takes R,phi,z and params
+        hf (HaloFit) - HaloFit class containing all 
+        samples (array) - MCMC samples, shape is (nsample,ndim). If None then 
+            samples will be hf.samples [default None]
+        plot_mass (bool) - Also plot masses? If so len(masses) must be 
+            n_samples [default False]
+        thin (int) - Factor to thin by, so will plot samples[::thin]
+        thin_to (int) - Number of samples that should be plotted, all others 
+            will be thinned to achieve this [default None]
+        truths (str) - Add maximum likelihood truths. Must be string supplied 
+            to hf.get_ml_params() [default None]
+        corner_kwargs (dict) - Dictionary of keywords to pass to corner.corner()
+            [default {}]
+    
+    Returns:
+        fig (pyplot.Figure) - Figure with all samples
+    '''
+    # Copy kwargs so not overwriting
+    _corner_kwargs = copy.deepcopy(corner_kwargs)
+    
+    # Get mcmc labels, denormalize parameters
+    mcmc_labels = pdens.get_densfunc_mcmc_labels(hf.densfunc, 
+                                                 physical_units=True)
+    if samples is None:
+        samples = hf.samples
+    samples = pdens.denormalize_parameters(samples, hf.densfunc)
+    
+    # Including mass or not?
+    if plot_mass:
+        masses = np.masses
+        if np.median(masses)>_MEDIAN_MASS_FOR_1E8:
+            masses /= 1e8
+            mcmc_labels.append(r'M $[10^{8} \textrm{M}_{\odot}]$')
+        else:
+            mcmc_labels.append(r'M $[\textrm{M}_{\odot}]$')
+            
+        if len(masses) == samples.shape[0]:
+            samples = np.concatenate((samples,np.atleast_2d(masses).T),axis=1)
+        if len(masses) < samples.shape[0]:
+            assert hf.mass_inds is not None, 'if number of masses less'+\
+                ' than number of samples, hf.mass_inds must be not None'
+            samples = samples[hf.mass_inds]
+            samples = np.concatenate((samples,np.atleast_2d(masses).T),axis=1)
+    
+    # Thinning if required
+    n_samples = samples.shape[0]
+    if thin is not None:
+        thin = int(thin)
+        print('thinning by factor '+str(thin))
+        samples = samples[::thin,:]
+    elif thin_to is not None:
+        thin = np.floor(n_samples/thin_to).astype(int)
+        print('thinning to N='+str(thin_to)+', thinning by factor '+str(thin))
+        samples = samples[::thin,:]
+    
+    # Include truths
+    valid_truths = ['mcmc_ml','mcmc_median','post','init']
+    if (truths is not None) and (truths in valid_truths):
+        truth_values = hf.get_ml_params(truths)
+        if plot_mass: # Need to account for ml_ind for mass and other truths
+            print('Truths for mass not yet implemented')
+            truth_values.append(None)
+        if 'truths' not in _corner_kwargs.keys():
+            _corner_kwargs.update({'truths':truth_values})
+        else:
+            print('Not including truths in _corner_kwargs, key already present')
+    
+    # Plot
+    fig = corner.corner(samples, quantiles=quantiles, labels=mcmc_labels, 
+                        show_titles=show_titles, **_corner_kwargs)
+    return fig
+
+
+def plot_masses(hf,quantiles=[0.16,0.5,0.84],show_titles=True,
+                corner_kwargs={}):
+    '''plot_masses:
+    
+    Args:
+        hf (HaloFit) - HaloFit class containing all information
+        m_ten_eight
+    
+    Returns:
+        fig (matplotlib Figure object)
+        axs (matplotlib Axis object)
+    '''
+    # Copy kwargs so not overwriting
+    _corner_kwargs = copy.deepcopy(corner_kwargs)
+    
+    masses = hf.masses
+    if np.median(masses)>_MEDIAN_MASS_FOR_1E8:
+        masses /= 1e8
+        labels = [r'M $[10^{8} \textrm{M}_{\odot}]$']
+    else:
+        labels = [r'M $\textrm{M}_{\odot}$']
+    fig = corner.corner(np.atleast_2d(masses).T, quantiles=quantiles, 
+                        labels=labels, show_titles=show_titles, **_corner_kwargs)
+    return fig
+
+
+def plot_density_xyz(hf,params,n=100,scale=20.,contour=False,imshow_kwargs={},
+                     contour_kwargs={},fig=None,axs=None):
+    '''plot_density_xyz:
+    
+    Plot XYZ plane views of a density profile, can be contour
+    
+    Args:
+        hf (HaloFit) - HaloFit class containing all information
         params (list) - List of parameters for the density function
         n (int) - Number of bins in each dimension [default 100]
         scale (float) - Size of the box, units depend on model and params 
             [default 20]
+        contour (bool) - plot as contour instead of image [default False]
+        imshow_kwargs (dict) - keywords to supply to imshow if contour=False. 
+            Will be supplied with some default keywords if is {} [default {}]
+        contour_kwargs (dict) - keywords to supply to contour if contour=True.
+            Will be supplied with some default keywords if is {} [default {}]
         fig (matplotlib Figure instance) - Figure, if None will make one
         axs (matplotlib Axes instance) - Axes, must be 3, if None will make one
     
     Returns:
-        
+        fig (matplotlib Figure object)
     '''
+    # Default kwargs
+    if imshow_kwargs == {}:
+        contour_kwargs = {'cmap':'rainbow', 'vmin':-1, 'vmax':3, 
+                          'extent':(-scale,scale,-scale,scale), 
+                          'origin':'lower'}
+    if contour_kwargs == {}:
+        imshow_kwargs = {'levels':[0.,0.5,1.,1.5,2.,2.5,3.], 
+                         'extent':(-scale,scale,-scale,scale),
+                         'origin':'lower'}
+    
+    # Index strings
     ind_arr = [[0,1],[0,2],[1,2]]
     ind_str = [['X','Y'],['X','Z'],['Y','Z']]
     
@@ -135,32 +260,176 @@ def plot_density_xyz(model,params,n=100,scale=20.,fig=None,axs=None):
     zs = np.linspace(-scale,scale,endpoint=False,num=n)+(scale/n)
     
     for i in range(3):
+        # Grid
         if i == 0: # XY plane
-            xgrid,ygrid = np.meshgrid(xs,ys)
+            c1grid,c2grid = np.meshgrid(xs,ys)
             zgrid = np.zeros_like(xgrid)
-            Rgrid,phigrid,zgrid = xyz_to_Rphiz(xgrid,ygrid,zgrid)
+            Rgrid,phigrid,zgrid = xyz_to_Rphiz(c1grid,c2grid,zgrid)
         if i == 1: # XZ plane
-            xgrid,zgrid = np.meshgrid(xs,zs)
+            c1grid,c2grid = np.meshgrid(xs,zs)
             ygrid = np.zeros_like(xgrid)
-            Rgrid,phigrid,zgrid = xyz_to_Rphiz(xgrid,ygrid,zgrid)
+            Rgrid,phigrid,zgrid = xyz_to_Rphiz(c1grid,ygrid,c2grid)
         if i == 2: # YZ plane
-            ygrid,zgrid = np.meshgrid(ys,zs)
+            c1grid,c2grid = np.meshgrid(ys,zs)
             xgrid = np.zeros_like(ygrid)
-            Rgrid,phigrid,zgrid = xyz_to_Rphiz(xgrid,ygrid,zgrid)
+            Rgrid,phigrid,zgrid = xyz_to_Rphiz(xgrid,c1grid,c2grid)
     
         # Calculate densities
-        dgrid = model(Rgrid,phigrid,zgrid,params)
+        dgrid = hf.densfunc(Rgrid,phigrid,zgrid,params)
         
-        axs[i].imshow(np.log10(dgrid), cmap='rainbow', 
-                      extent=(-scale,scale,-scale,scale), vmin=-1, vmax=3, 
-                      origin='lower')
+        if contour:
+            axs[i].contour(c1grid,c2grid,np.log10(dgrid), **contour_kwargs)
+        else:
+            axs[i].imshow(np.log10(dgrid), **imshow_kwargs)
         axs[i].set_xlabel(ind_str[i][0]+' [kpc]')
         axs[i].set_ylabel(ind_str[i][1]+' [kpc]')
 
     fig.tight_layout()
     fig.show()
     
-    return fig,axs
+    return fig
+
+
+def plot_density_re(hf, re_range=[0.1,100], nre=100, nrand=None, 
+                    plot_kwargs={}):
+    '''plot_density_re:
+    
+    Make a figure of density vs effective radius
+    
+    Args:
+        hf (HaloFit) - HaloFit class containing all information
+        re_range (list) - Range of effective radius to plot [default 0.1 to 100]
+        nre (int) - Number of effective radii to consider [default 100]
+        nrand (int) - Number of samples to randomly select [default None]
+        plot_kwargs (dict) - kwargs to send to plt.plot [default {}]
+        
+    Returns:
+        fig (matplotlib Figure object)
+        axs (matplotlib Axis object)
+    '''
+    # Figure & axis
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    
+    # Effective radius grid
+    re = np.logspace(np.log10(re_range[0]), np.log10(re_range[1]), nre)
+    _phi = np.zeros_like(re)
+    _z = np.zeros_like(re)
+    log_re = np.log10(re)
+    
+    # Get the indices of the p and q parameters
+    params = ['p','q']
+    indx = pdens.get_densfunc_params_indx(hf.densfunc,params)
+    
+    # Determine samples for which to calculate density
+    if nrand is not None:
+        nrand = int(nrand)
+        rnp = np.random.default_rng()
+        randind = rnp.integers(0,hf.samples.shape[0],size=nrand)
+        samples_in = hf.samples[randind]
+    else:
+        samples_in = hf.samples[:]
+    
+    # Calculate density and plot
+    for i in range(len(samples_in)):
+        _sample = samples_in[i]
+        _sample[indx] = [1.,1.]
+        dens = hf.densfunc(re,_phi,_z,params=_sample)
+        ax.plot(log_re, np.log10(dens), **plot_kwargs)
+    
+    ax.set_xlabel(r'$\log_{10} (r_{e})$ [kpc]')
+    ax.set_ylabel(r'$\log_{10} (\nu)$')
+    
+    return fig
+
+def plot_distmod_posterior(hf, pd=None, nrand=None, posterior_type='lines', 
+    fill_quantiles=[0.16,0.5,0.84], hist_kwargs=None, lines_kwargs=None, 
+    fill_kwargs=None):
+    '''plot_distmod_posterior:
+    
+    Plot the distance modulus posterior of the data vs the model
+    
+    Args:
+        hf (HaloFit) - HaloFit class containing all information
+        pd (array) - Supplied posterior distribution for models to plot, if 
+            None then will be calculated. Should be shape (nsamples,ndmod)
+            [default None]
+        nrand (int) - Number of samples to get posteriors for, randomly. If None 
+            then don't do random subsample, do all samples. [default None]
+        posterior_type (string) - How to plot posteriors, either 'lines' so each 
+            sample gets it's own line, or 'fill' so the median is between 
+            two quantiles (see fill_quantiles) [default 'lines']
+        fill_quantiles (array) - 3-element array describing quantiles if 
+            posterior_type='fill', [default (0.16,0.5,0.84)]
+        hist_kwargs (dict) - Dict of kwargs passed to ax.hist for data plotting
+            [default {}]
+        lines_kwargs (dict) - Dict of kwargs passed to ax.plot for 'lines'
+            posterior plotting [default {}]
+        fill_kwargs (dict) - Dict of kwargs passed to ax.fill_between for 
+            'fill' posterior plotting [default {}]
+        verbose (bool) - Be verbose?
+        ro,vo (float) - galpy ro,vo scales [default 8,220]
+
+    Returns:
+        fig,ax
+    '''
+    if hist_kwargs is None:
+        hist_kwargs = {'color':'Black'}
+    if fill_kwargs is None:
+        fill_kwargs = {'alpha':0.5,'color':'DarkOrange'}
+    if lines_kwargs is None:
+        lines_kwargs = {'color':'DarkOrange','linewidth':2.}
+    
+    # Checks
+    assert posterior_type in ['lines','fill']
+    
+    # Calculate posterior
+    if pd is None:
+        if hf.verbose:
+            print('Calculating p(distmod|model)..')
+        if nrand is not None:
+            nrand = int(nrand)
+            rnp = np.random.default_rng()
+            randind = rnp.integers(0,hf.samples.shape[0],size=nrand)
+            samples_in = hf.samples[randind]
+        else:
+            samples_in = hf.samples[:]
+        Rgrid,phigrid,zgrid = hf.get_effsel_list()
+        pd,pdt,rate = pmass.pdistmod_sample(hf.densfunc, samples_in, 
+            hf.get_fit_effsel(), hf.Rgrid, hf.phigrid, hf.zgrid, hf.dmods, 
+            return_rate=True, verbose=hf.verbose)
+    else:
+        assert pd.shape[1] == len(hf.dmods)
+    
+    if hf.verbose:
+        print('plotting..')
+        
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+
+    # Data histogram
+    #zero_arr = np.zeros_like(hf.Rdata)
+    #vxvv = np.array([hf.Rdata/hf.ro,zero_arr,zero_arr,hf.zdata/hf.ro,
+    #                 zero_arr,hf.phidata]).T
+    #orbs = orbit.Orbit(vxvv=vxvv, ro=hf.ro, vo=hf.vo)
+    orbs = hf.orbs
+    dm = 5*np.log10(orbs.dist(use_physical=True).value)+10
+    ax.hist(dm, histtype='step', zorder=2, range=(np.min(hf.dmods),
+            np.max(hf.dmods)), density=True, **hist_kwargs)
+
+    if posterior_type == 'lines':
+        for i in range(len(pd)):
+            ax.plot(hf.dmods, pd[i], zorder=3, **lines_kwargs)
+
+    if posterior_type == 'fill':
+        lqt_pd, mqt_pd, uqt_pd = np.quantile(pd, fill_quantiles, axis=0)
+        ax.fill_between(hf.dmods, lqt_pd, uqt_pd, zorder=3, **fill_kwargs)
+        ax.plot(hf.dmods, mqt_pd, zorder=4, **lines_kwargs)
+
+    ax.set_xlabel('Distance Modulus')
+    ax.set_ylabel('Density')
+
+    return fig 
 
 # ----------------------------------------------------------------------------
 
