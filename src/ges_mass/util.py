@@ -175,6 +175,225 @@ def parse_config_dict(cdict,keyword):
 
 # ----------------------------------------------------------------------------
 
+# Prepare filenames, pathing, fitting 
+
+def prepare_paths(base_dir,apogee_dr,apogee_results_vers,gaia_dr,df_version,
+                  ksf_version):
+    '''prepare_paths:
+    
+    Args:
+        base_dir
+        apogee_dr
+        apogee_results_vers
+        gaia_dr
+    
+    Returns:
+        dirs (list) - List of [data_dir,version_dir,ga_dir,gap_dir,ksf_dir,
+                               fit_dir]
+    '''
+    data_dir = base_dir+'data/'
+    version_dir = ('apogee_'+apogee_dr+'_'+apogee_results_vers+'_gaia_'+
+                   gaia_dr+'/')
+    ga_dir = data_dir+'gaia_apogee/'+version_dir
+    gap_dir = data_dir+'gaia_apogee_processed/'+version_dir
+    df_dir = data_dir+'ksf/'+version_dir+df_version+'/'
+    ksf_dir = df_dir+ksf_version+'/'
+    fit_dir = data_dir+'fitting/'
+    return [data_dir,version_dir,ga_dir,gap_dir,df_dir,ksf_dir,fit_dir]
+
+
+def prepare_filenames(ga_dir,gap_dir,feh_range):
+    '''prepare_filenames:
+    
+    Args:
+        ga_dir
+        gap_dir
+        feh_range
+        
+    Returns:
+        filenames (list) - List of [apogee_SF_filename,
+                                    apogee_effSF_filename,
+                                    apogee_effSF_mask_filename,
+                                    iso_grid_filename,
+                                    clean_kinematics_filename]
+    '''
+    feh_min,feh_max = feh_range
+    apogee_SF_filename = ga_dir+'apogee_SF.dat'
+    apogee_effSF_filename = (ga_dir+'apogee_effSF_grid_inclArea_'+
+                             str(feh_min)+'_feh_'+str(feh_max)+'.dat')
+    apogee_effSF_mask_filename = ga_dir+'apogee_effSF_grid_mask.npy'
+    iso_grid_filename = ga_dir+'iso_grid.npy'
+    sampled_kinematics = True
+    if sampled_kinematics:
+        clean_kinematics_filename = gap_dir+'clean_kinematics_sampled.npy'
+    else:
+        clean_kinematics_filename = gap_dir+'clean_kinematics_no_sample.npy'
+    out = [apogee_SF_filename,apogee_effSF_filename,apogee_effSF_mask_filename,
+           iso_grid_filename,clean_kinematics_filename]
+    return out
+
+
+def prepare_fitting(fit_filenames,dmod_info,ro,zo,return_other=False):
+    '''prepare_fitting:
+    
+    Do some preparation for fitting which is common to many notebooks
+    
+    Args:
+        fit_filenames (list) - List of [apogee_SF_filename,
+            apogee_effSF_filename,apogee_effSF_mask_filename,iso_grid_filename,
+            clean_kinematics_filename]
+        dmod_info (list) - List of [ndmod,dmod_min,dmod_max]
+        ro,zo (float) - Distance from GC to Sun, Sun from galactic plane
+        return_other (bool) - Return supplementary stuff
+    
+    Returns:
+        out_main = [dmap,iso_grid,jkmins,dmods,ds,effsel_grid,apof]
+        out_other = [apogee_SF,apogee_effSF_grid_inclArea,apogee_effSF_mask,
+                     allstar_nomask,orbs_nomask,]
+    '''
+    ## Unpack filenames
+    apogee_SF_filename,apogee_effSF_filename,apogee_effSF_mask_filename,\
+        iso_grid_filename,clean_kinematics_filename = fit_filenames
+    
+    ## Selection function
+    with open(apogee_SF_filename, 'rb') as f:
+        print('\nLoading APOGEE sel. func. from '+\
+              apogee_SF_filename)
+        apogee_SF = pickle.load(f)
+    with open(apogee_effSF_filename,'rb') as f:
+        print('\nLoading APOGEE eff. sel. func. from '+\
+              apogee_effSF_filename)
+        apogee_effSF_grid_inclArea = pickle.load(f)
+    print('\nLoading APOGEE eff. sel. func. mask from '+\
+          apogee_effSF_mask_filename)
+    apogee_effSF_mask = np.load(apogee_effSF_mask_filename)
+
+    ## Data
+    with open(clean_kinematics_filename,'rb') as f:
+        print('\nLoading cleaned kinematics from '+clean_kinematics_filename)
+        clean_kinematics = pickle.load(f)
+    _,allstar_nomask,orbs_nomask,_,_,_ = clean_kinematics
+
+    ## Dust map, from mwdust, use most recent
+    dmap = mwdust.Combined19(filter='2MASS H')
+
+    ## Isochrone
+    print('\nLoading isochrone grid from '+iso_grid_filename)
+    iso_grid = np.load(iso_grid_filename)
+
+    ## JKmins
+    jkmins = np.array([apogee_SF.JKmin(apogee_SF._locations[i]) \
+                       for i in range(len(apogee_SF._locations))])
+
+    ## Distance modulus grid
+    ndmod,dmod_min,dmod_max = dmod_info
+    dmods,ds = make_dmod_grid(ndmod,dmod_min,dmod_max)
+
+    ## Grid of positions in the APOGEE effective selection function grid
+    Rgrid,phigrid,zgrid = pmass.Rphizgrid(apogee_SF,dmods,ro=ro,zo=zo)
+
+    ## Apply the effective selection function grid mask
+    apof = apogee_effSF_grid_inclArea[apogee_effSF_mask]
+    Rgrid = Rgrid[apogee_effSF_mask]
+    phigrid = phigrid[apogee_effSF_mask]
+    zgrid = zgrid[apogee_effSF_mask]
+    jkmins = jkmins[apogee_effSF_mask]
+
+    ## Include the distance modulus Jacobian
+    Jac_dmod = ds**3.*np.log(10)/5.*(dmods[1]-dmods[0])
+    Jac_rad = (np.pi/180.)**2.
+    apof = apof * Jac_dmod * Jac_rad
+    apogee_effSF_grid_inclArea_Jac = apogee_effSF_grid_inclArea * Jac_dmod * Jac_rad
+
+    ## Combine effsel grids
+    effsel_grid = [Rgrid,phigrid,zgrid]
+    
+    out_main = [apogee_effSF_mask,dmap,iso_grid,jkmins,dmods,ds,effsel_grid,
+                apof,allstar_nomask,orbs_nomask]
+    out_other = [apogee_SF,apogee_effSF_grid_inclArea,apogee_effSF_grid_inclArea_Jac]
+    
+    if return_other:
+        return out_main,out_other
+    else:
+        return out_main
+    
+# ----------------------------------------------------------------------------
+
+def match_indx_masked(x,y,return_indx=False):
+    '''match_indx_masked:
+    
+    Match y to x such that x[indx] = y
+    
+    The output result is a masked array which is linked to x and y as follows:
+    x matches are x[ result[~result.mask].data ]
+    y matches are y[ ~result.mask ]
+    
+    Args:
+        x (np.array) - Array that will be searched
+        y (np.array) - Array of elements who's indices in x
+    
+    Returns:
+        result (np.array) - Masked array representing the indices of y in x
+        x_indx (np.array) - Indices of x representing the match
+        y_indx (np.array) - Indices of y representing the match
+    '''    
+    index = np.argsort(x)
+    sorted_x = x[index]
+    sorted_index = np.searchsorted(sorted_x, y)
+
+    yindex = np.take(index, sorted_index, mode="clip")
+    mask = x[yindex] != y
+
+    result = np.ma.array(yindex, mask=mask)
+    
+    # Make sure it worked
+    assert np.all( x[result[~result.mask]] == y[~result.mask] )
+    
+    # Use the masked mask to make match indices
+    x_indx = result[~result.mask].data
+    y_indx = np.where(~result.mask)[0]
+    
+    if return_indx:
+        return result,x_indx,y_indx
+    else:
+        return result
+    
+
+def lane2022_kinematic_selections(version='current'):
+    '''lane2022_kinematic_selections:
+    
+    Return the Lane+2022 kinematic selections
+    
+    Args:
+        None
+    
+    Returns:
+        selec_dict (dict) - Kinematic selection dictionary
+    '''
+    assert version in ['2022_published','current']
+    if version == '2022_published':
+        selec_dict = {'vRvT':   [ ['ellipse', [290,0], [110,35]], 
+                                  ['ellipse', [-290,0], [110,35]] ],
+                      'Toomre': [ ['ellipse', [0,300], [35,120]], ],
+                      'ELz':    [ ['ellipse', [0,-1], [300,0.5]], ],
+                      'JRLz':   [ ['ellipse', [0,45], [300,20]], ],
+                      'eLz':    [ ['ellipse', [0,1], [500,0.025]], ],
+                      'AD':     [ ['ellipse', [0,-1], [0.08,0.3]], ]
+                     }
+        
+    # This is identical except it has larger eccentricity ellipse
+    elif version == 'current':
+        selec_dict = {'vRvT':   [ ['ellipse', [290,0], [110,35]], 
+                                  ['ellipse', [-290,0], [110,35]] ],
+                      'Toomre': [ ['ellipse', [0,300], [35,120]], ],
+                      'ELz':    [ ['ellipse', [0,-1], [300,0.5]], ],
+                      'JRLz':   [ ['ellipse', [0,45], [300,20]], ],
+                      'eLz':    [ ['ellipse', [0,1], [500,0.05]], ], # 0.025 -> 0.05
+                      'AD':     [ ['ellipse', [0,-1], [0.08,0.3]], ]
+                     }
+    print('Version of selection dictionary is: '+version)
+    return selec_dict
+
 def make_dmod_grid(n,dmod_min,dmod_max):
     '''make_dmod_grid:
     
