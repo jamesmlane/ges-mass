@@ -175,10 +175,28 @@ def fit_smooth_spline(x,y,s=0):
                                               k=3, s=s, ext=1)
     return smooth_spl
 
+def fit_linear_spline(x,y):
+    '''fit_linear_spline:
+    
+    Fit a linear spline to KSF purity and completeness data. 
+    
+    Args:
+        x (np.ndarray) - X data
+        y (np.ndarray) - Y data
+        
+    Returns:
+        linear_spl () - Linear spline
+    '''    
+    interpolation_mask = np.isfinite(x) & np.isfinite(y)
+    linear_spl = interpolate.interp1d(x[interpolation_mask], 
+                                      y[interpolation_mask], kind='linear')
+    return linear_spl
 
-def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions, 
-    halo_selection_dict, phi0, lblocids_pointing, ds_individual, fs, , ksf_dir, 
-    fig_dir, force_splines=False, make_spline_plots=None, n_spline_plots=50):
+
+def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
+    mixture_arr, halo_selection_dict, phi0, lblocids_pointing, ds_individual, 
+    fs, kSF_dir, fig_dir, force_splines=False, force_cp=False, 
+    spline_type='linear', make_spline_plots=None, n_spline_plots=50):
     '''make_completeness_purity_splines:
     
     Calculate completeness and purity at all locations for the kinematic 
@@ -193,12 +211,15 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
         orbs (list of orbit.Orbit instances) - list of size = number of 
             DFs containing list of size = number of locations in the spline 
             fitting grid  containing orbits representing kinematic samples
-        eELzs (list of orbit.Orbit instances) - list of size = number of 
+        eELzs (list of arrays) - list of size = number of 
             DFs containing list of size = number of locations in the spline 
             fitting grid  containing e,E,Lz
-        orbs (list of orbit.Orbit instances) - list of size = number of 
+        actions (list of arrays) - list of size = number of 
             DFs containing list of size = number of locations in the spline 
-            fitting grid containing actions
+            fitting grid  containing JR,Lz,Jz
+        mixture_arr () - Array of size = number of DFs containing the fractions 
+            of samples used to generate the mixtures for completeness and purity 
+            calculations
         halo_selection_dict (dict) - Dictionary containing halo selections
         phi0 (float) - Value of the potential at infinity
         lblocids_pointing (list) - List containing the ls, bs, and locids 
@@ -207,24 +228,38 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
             a spline along each pointing
         fs (array) - Array of length number of distance points x number of 
             pointings containing the APOGEE location ID for each point
-        ksf_dir (string) - Directory to store the kinematic effective 
+        kSF_dir (string) - Directory to store the kinematic effective 
             selection function data products
         fig_dir (string) - Directory to store figures
         force_splines (bool) - Force creation of new splines even if old 
             ones exist
+        force_cp (bool) - Force calculation of completeness & purity, 
+            even if saved values exist
+        spline_type (str) - Type of spline to create, either 'linear', 
+            'cubic', or 'both' ['linear']
         make_spline_plots (str) - Make plots of completeness splines 
             'completeness', purity splines 'purity' or both 'both'
-        n_spline_plots (int) - Number of splines to plot
+        n_spline_plots (int) - Number of splines to plot, use 'all' to 
+            plot everything
     
     Returns:
         None
     '''
+    assert spline_type in ['linear','cubic','both'], 'spline_type must be'+\
+        ' either "linear", "cubic", or "both"'
+    
     print('\nSelection is: ')
     print(selec_spaces)
     
     # Unpack info for each pointing
     ls_pointing,bs_pointing,locids_pointing = lblocids_pointing
     n_pointing = len(locids_pointing)
+    
+    # Program is only setup to handle 2 samples as input
+    assert len(orbs) == 2
+    assert len(eELzs) == 2
+    assert len(actions) == 2
+    assert len(mixture_arr) == 2
     
     # Assert that orbs faithfully holds location and sample number info
     n_locs = len(orbs[0])
@@ -234,7 +269,12 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
     purity = np.zeros(n_locs)
     if isinstance(selec_spaces,str): selec_spaces = [selec_spaces,]
     selec_spaces_suffix = '-'.join(selec_spaces)
-    spline_filename = ksf_dir+'ksf_splines_'+selec_spaces_suffix+'.pkl'
+    if spline_type in ['linear','both']:
+        spline_linear_filename = kSF_dir+'kSF_splines_linear_'+\
+            selec_spaces_suffix+'.pkl'
+    if spline_type in ['cubic','both']:
+        spline_cubic_filename = kSF_dir+'kSF_splines_cubic_'+\
+            selec_spaces_suffix+'.pkl'
     
     if make_spline_plots in ['completeness','both']:
         completeness_fig_dir = fig_dir+selec_spaces_suffix+'/completeness/'
@@ -243,71 +283,120 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
         purity_fig_dir = fig_dir+selec_spaces_suffix+'/purity/'
         os.makedirs(purity_fig_dir, exist_ok=True)
     
-    # Calculate purity and completeness at each KSF location
-    print('Calculating completeness and purity')
-    for i in range(n_locs):
-        for j in range(len(selec_spaces)):
-            lowbeta_x,lowbeta_y = pplot.get_plottable_data( [orbs[0][i],], 
-                [eELzs[0][i],], [actions[0][i],], np.array([1,]), selec_spaces[j], 
-                phi0=phi0, absolute=True)
-            highbeta_x,highbeta_y = pplot.get_plottable_data( [orbs[1][i],], 
-                [eELzs[1][i],], [actions[1][i],], np.array([1,]), selec_spaces[j], 
-                phi0=phi0, absolute=True)
-            this_selection = halo_selection_dict[selec_spaces[j]]
+    completeness_filename = kSF_dir+'completeness_'+selec_spaces_suffix+'.npy'
+    purity_filename = kSF_dir+'purity_'+selec_spaces_suffix+'.npy'
+    if not (   os.path.exists(completeness_filename)\
+            or os.path.exists(purity_filename)) or force_cp:
+        # Calculate purity and completeness at each KSF location
+        print('Calculating completeness and purity')
+        for i in range(n_locs):
+            for j in range(len(selec_spaces)):
+                lowbeta_x,lowbeta_y = pplot.get_plottable_data( [orbs[0][i],], 
+                    [eELzs[0][i],], [actions[0][i],], 
+                    np.atleast_2d(mixture_arr[0]), 
+                    selec_spaces[j], phi0=phi0, absolute=True)
+                highbeta_x,highbeta_y = pplot.get_plottable_data( [orbs[1][i],], 
+                    [eELzs[1][i],], [actions[1][i],], 
+                    np.atleast_2d(mixture_arr[1]), 
+                    selec_spaces[j], phi0=phi0, absolute=True)
+                this_selection = halo_selection_dict[selec_spaces[j]]
 
-            if j == 0:
-                lowbeta_selec = pplot.is_in_scaled_selection(lowbeta_x, lowbeta_y, 
-                        this_selection, factor=[1.,1.])
-                highbeta_selec = pplot.is_in_scaled_selection(highbeta_x, highbeta_y, 
-                        this_selection, factor=[1.,1.])
+                if j == 0:
+                    lowbeta_selec = pplot.is_in_scaled_selection(lowbeta_x, 
+                            lowbeta_y, this_selection, factor=[1.,1.])
+                    highbeta_selec = pplot.is_in_scaled_selection(highbeta_x, 
+                            highbeta_y, this_selection, factor=[1.,1.])
+                else:
+                    lowbeta_selec = lowbeta_selec & pplot.is_in_scaled_selection(
+                        lowbeta_x, lowbeta_y, this_selection, factor=[1.,1.])
+                    highbeta_selec = highbeta_selec & pplot.is_in_scaled_selection(
+                        highbeta_x, highbeta_y, this_selection, factor=[1.,1.])
+
+            if np.sum(highbeta_selec) == 0:
+                completeness[i] = 0
+                purity[i] = 0
             else:
-                lowbeta_selec = lowbeta_selec & pplot.is_in_scaled_selection(
-                    lowbeta_x, lowbeta_y, this_selection, factor=[1.,1.])
-                highbeta_selec = highbeta_selec & pplot.is_in_scaled_selection(
-                    highbeta_x, highbeta_y, this_selection, factor=[1.,1.])
-                
-        if np.sum(highbeta_selec) == 0:
-            completeness[i] = 0
-            purity[i] = 0
-        else:
-            completeness[i] = np.sum(highbeta_selec)/n_samples
-            purity[i] = np.sum(highbeta_selec)/(np.sum(highbeta_selec)\
-                                                +np.sum(lowbeta_selec))
+                completeness[i] = np.sum(highbeta_selec)/n_samples
+                purity[i] = np.sum(highbeta_selec)/(np.sum(highbeta_selec)\
+                                                    +np.sum(lowbeta_selec))
+        print('Saving purity and completeness to '+purity_filename+' and '+\
+              completeness_filename)
+        np.save(completeness_filename, completeness, allow_pickle=True)
+        np.save(purity_filename, purity, allow_pickle=True)
+    else:
+        print('Loading purity and completeness from '+purity_filename+' and '+\
+              completeness_filename)
+        completeness = np.load(completeness_filename, allow_pickle=True)
+        purity = np.load(purity_filename, allow_pickle=True)
     
     # Create the purity and completeness splines for each location
-    if not os.path.exists(spline_filename) or force_splines:
-        print('Creating completeness-distance and purity-distance splines')
-        spl_completeness_arr = []
-        spl_purity_arr = []
+    if spline_type in ['linear','both']:
+        if not os.path.exists(spline_linear_filename) or force_splines:
+            print('Creating linear completeness and purity splines')
+            spl_linear_completeness_arr = []
+            spl_linear_purity_arr = []
 
-        # Loop over all pointings
-        for i in range(n_pointing):
-            # Find where elements of the larger pointing-distance grid are from 
-            # this location
-            where_pointing = np.where(fs == locids_pointing[i])[0]
+            # Loop over all pointings
+            for i in range(n_pointing):
+                # Find where elements of the larger pointing-distance grid are 
+                # from this location
+                where_pointing = np.where(fs == locids_pointing[i])[0]
 
-            # Get spline-fitting data
-            spl_xs = np.log10(ds_individual)
-            spl_cs = completeness[where_pointing]
-            spl_ps = purity[where_pointing]
-            spl_s = 0.2
-            spl_completeness = fit_smooth_spline(spl_xs, spl_cs,s=spl_s)
-            spl_purity = fit_smooth_spline(spl_xs, spl_ps,s=spl_s)
-            spl_completeness_arr.append(spl_completeness)
-            spl_purity_arr.append(spl_purity)
+                # Get spline-fitting data
+                spl_xs = np.log10(ds_individual)
+                spl_cs = completeness[where_pointing]
+                spl_ps = purity[where_pointing]
+                spl_completeness = fit_linear_spline(spl_xs, spl_cs)
+                spl_purity = fit_linear_spline(spl_xs, spl_ps)
+                spl_linear_completeness_arr.append(spl_completeness)
+                spl_linear_purity_arr.append(spl_purity)
 
-        # Save splines
-        print('Saving splines to '+spline_filename)
-        with open(spline_filename,'wb') as f:
-            pickle.dump([spl_completeness_arr,spl_purity_arr,locids_pointing],f)
-    else:
-        # Load splines
-        print('Loading splines from '+spline_filename)
-        with open(spline_filename,'rb') as f:
-            spl_completeness_arr,spl_purity_arr,_ = pickle.load(f)
-    
+            # Save splines
+            print('Saving splines to '+spline_linear_filename)
+            with open(spline_linear_filename,'wb') as f:
+                pickle.dump([spl_linear_completeness_arr,spl_linear_purity_arr,
+                             locids_pointing],f)
+        else:
+            # Load splines
+            print('Loading splines from '+spline_linear_filename)
+            with open(spline_linear_filename,'rb') as f:
+                spl_linear_completeness_arr,spl_linear_purity_arr,_ = pickle.load(f)
+        
+    if spline_type in ['cubic','both']:
+        if not os.path.exists(spline_cubic_filename) or force_splines:
+            print('Creating cubic completeness and purity splines')
+            spl_cubic_completeness_arr = []
+            spl_cubic_purity_arr = []
+
+            # Loop over all pointings
+            for i in range(n_pointing):
+                # Find where elements of the larger pointing-distance grid are 
+                # from this location
+                where_pointing = np.where(fs == locids_pointing[i])[0]
+
+                # Get spline-fitting data
+                spl_xs = np.log10(ds_individual)
+                spl_cs = completeness[where_pointing]
+                spl_ps = purity[where_pointing]
+                spl_s = 0.2
+                spl_completeness = fit_smooth_spline(spl_xs, spl_cs, s=spl_s)
+                spl_purity = fit_smooth_spline(spl_xs, spl_ps, s=spl_s)
+                spl_cubic_completeness_arr.append(spl_completeness)
+                spl_cubic_purity_arr.append(spl_purity)
+
+            # Save splines
+            print('Saving splines to '+spline_cubic_filename)
+            with open(spline_cubic_filename,'wb') as f:
+                pickle.dump([spl_cubic_completeness_arr,spl_cubic_purity_arr,
+                             locids_pointing],f)
+        else:
+            # Load splines
+            print('Loading splines from '+spline_cubic_filename)
+            with open(spline_cubic_filename,'rb') as f:
+                spl_cubic_completeness_arr,spl_cubic_purity_arr,_ = pickle.load(f)
+        
     if make_spline_plots:
-        if n_spline_plots == None:
+        if n_spline_plots == 'all':
             print('Making all spline plots')
         else:
             print('Making '+str(n_spline_plots)+' spline plots')
@@ -318,7 +407,7 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
         # Make plots of purity and completeness at each location
         for i in range(n_pointing):
             
-            if n_spline_plots == None: pass
+            if n_spline_plots == 'all': pass
             elif i+1 > n_spline_plots: continue
 
             if i+1 == n_pointing:
@@ -334,8 +423,16 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
 
             # Completeness
             if make_spline_plots in ['completeness','both']:
-                fig,ax = pplot.plot_completeness_purity_distance_spline(spl_xs,
-                    spl_cs,spl_completeness_arr[i],mock_xs,'completeness')
+                fig = None
+                ax = None
+                if spline_type in ['linear','both']:
+                    fig,ax = pplot.plot_completeness_purity_distance_spline(
+                        spl_xs,spl_cs,spl_linear_completeness_arr[i],mock_xs,
+                        'completeness',spl_color='DodgerBlue')
+                if spline_type in ['cubic','both']:
+                    fig,ax = pplot.plot_completeness_purity_distance_spline(
+                        spl_xs,spl_cs,spl_cubic_completeness_arr[i],mock_xs,
+                        'completeness',spl_color='Red',fig=fig,ax=ax)
                 ax.axhline(0,color='Black',linestyle='dashed')
                 fig.suptitle(r'ID: '+str(locids_pointing[i])+', '\
                              +'$\ell = '+str(round(ls_pointing[i],2))+'^{\circ}, '\
@@ -351,8 +448,16 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
             
             # Purity
             if make_spline_plots in ['purity','both']:
-                fig,ax = pplot.plot_completeness_purity_distance_spline(spl_xs,
-                    spl_ps,spl_purity_arr[i],mock_xs,'purity')
+                fig = None
+                ax = None
+                if spline_type in ['linear','both']:
+                    fig,ax = pplot.plot_completeness_purity_distance_spline(
+                        spl_xs,spl_cs,spl_linear_purity_arr[i],mock_xs,
+                        'completeness',spl_color='DodgerBlue')
+                if spline_type in ['cubic','both']:
+                    fig,ax = pplot.plot_completeness_purity_distance_spline(
+                        spl_xs,spl_cs,spl_cubic_purity_arr[i],mock_xs,
+                        'completeness',spl_color='Red',fig=fig,ax=ax)
                 ax.axhline(0,color='Black',linestyle='dashed')
                 fig.suptitle(r'ID: '+str(locids_pointing[i])+', '\
                              +'$\ell = '+str(round(ls_pointing[i],2))+'^{\circ}, '\
