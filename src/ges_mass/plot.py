@@ -1,6 +1,6 @@
 # ----------------------------------------------------------------------------
 #
-# TITLE - util.py
+# TITLE - plot.py
 # AUTHOR - James Lane
 # PROJECT - ges-mass
 # CONTENTS:
@@ -16,19 +16,64 @@ __author__ = "James Lane"
 import numpy as np
 import numbers
 import copy
+import dill as pickle
+import os
 from astropy import units as apu
+from galpy import orbit
 import matplotlib
 from matplotlib import patches
 from matplotlib import pyplot as plt
+import corner
 from scipy.special import erf
 
 from . import util as putil
+from . import mass as pmass
+from . import densprofiles as pdens
+
+_MEDIAN_MASS_FOR_1E8 = 1e5
 
 # ----------------------------------------------------------------------------
 
 # Plotting density profiles
 
-# Functions
+def get_plotting_data(hf, return_dirs=False):
+    '''get_plotting_data:
+    
+    A wrapper function to get data so that all code cells are consistent
+    
+    Args:
+        hf (HaloFit) - HaloFit class
+        return_dirs (bool) - Return directories
+    
+    Returns:
+        out (list) - List of relevant data and variables for plotting:
+            samples (array) - MCMC output samples, shape is (nit,ndim)
+            opt (list) - scipy.optimize output
+            sampler () - emcee sampler object
+            masses (array) - Masses
+            facs (array) - Mass factors
+            samples_mass (array) - Subset of samples used to generated masses, 
+                only not None when masses < samples
+    '''
+    samples = np.load(hf.fit_data_dir+'samples.npy')
+    masses = np.load(hf.fit_data_dir+'masses.npy')
+    facs = np.load(hf.fit_data_dir+'facs.npy')
+    samples_mass = np.load(hf.fit_data_dir+'mass_sample_inds.npy')
+    with open(hf.fit_data_dir+'opt.pkl','rb') as f:
+        opt = pickle.load(f)
+    if os.path.exists(hf.fit_data_dir+'sampler.pkl'):
+        with open(hf.fit_data_dir+'sampler.pkl','rb') as f:
+            sampler = pickle.load(f)
+    else:
+        sampler = None
+    
+    out = [samples,opt,sampler,masses,facs,samples_mass]
+    if return_dirs:
+        out = out+[hf.fit_data_dir,hf.fit_fig_dir]
+    
+    return out
+
+
 def xyz_to_Rphiz(x,y,z):
     '''xyz_to_Rphiz:
     
