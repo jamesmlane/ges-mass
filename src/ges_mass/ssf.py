@@ -25,6 +25,7 @@ from galpy import orbit
 from galpy import potential
 from galpy.util import multi as galpy_multi
 from astropy import table
+from astropy import units as apu
 import urllib
 
 from . import plot as pplot
@@ -34,7 +35,7 @@ from . import util as putil
 
 # Define the function that will take all input and calculate results in parallelized manner
 def calc_kinematics_parallel(ncores,this_df,n_samples,orbs_locs,do_perturb_orbs,
-                             gaia_input,allstar_input,deltas,aAS,pot,ro,vo,zo):
+                             gaia_input,allstar_input,delta,aAS,pot,ro,vo,zo):
     '''calc_kinematics_parallel:
     
     Calculate the kinemaitcs according to a DF. Returns 
@@ -50,7 +51,7 @@ def calc_kinematics_parallel(ncores,this_df,n_samples,orbs_locs,do_perturb_orbs,
             the uncertainty from nearby data
         gaia_input (array) - Gaia data
         allstar_input (array) - APOGEE allstar data
-        deltas (array) - Staeckel deltas for location
+        delta (array) - Staeckel deltas for location
         aAS (actionAngleStaeckel instance) - Staeckel action angle object 
             to calculate kinematic quantities
         pot (potential.Potential instance) - Milky Way potential
@@ -61,21 +62,21 @@ def calc_kinematics_parallel(ncores,this_df,n_samples,orbs_locs,do_perturb_orbs,
     '''
      
     lambda_func = (lambda x: calc_kinematics_one_loc(this_df,n_samples,
-        orbs_locs[x], do_perturb_orbs,gaia_input[[x,]], allstar_input[[x,]],
-        deltas[x], aAS, pot, ro, vo, zo))
+        orbs_locs[x], do_perturb_orbs, gaia_input[[x,]], allstar_input[[x,]],
+        delta[x], aAS, pot, ro, vo, zo))
     
     n_calls = len(orbs_locs)
     print('Using '+str(ncores)+' cores')
     results = (galpy_multi.parallel_map(lambda_func, 
                np.arange(0,n_calls,1,dtype='int'),  
-               numcores=ncores))
+               numcores=ncores,progressbar=True))
     
     # By wrapping in numpy array results can be querried as 
     # results[:,0]: array of n_calls orbits, each orbit n_samples long
     # results[:,1]: array of n_calls eELzs, each is (3,1000) of e,E,Lz
     # results[:,2]: array of n_calls actions, each is (3,1000) of JR,Lz,Jz
     return np.array(results,dtype='object')
-#def
+
 
 def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
                     allstar_input,delta,aAS,pot,ro,vo,zo):
@@ -109,7 +110,7 @@ def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
     if do_perturb_orbs:
         orbs_samp = putil.perturb_orbit_with_Gaia_APOGEE_uncertainties(orbs_samp,
             gaia_input,allstar_input,only_velocities=True,ro=ro,vo=vo,zo=zo)
-
+    
     ecc,_,_,_ = aAS.EccZmaxRperiRap(orbs_samp, delta=delta, 
                                     use_physical=True, c=True)
     accs = aAS(orbs_samp, delta=delta, c=True)
@@ -117,28 +118,29 @@ def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
     Lz = orbs_samp.Lz()
 
     try:
-        ecc = ecc.value
+        ecc = ecc.value # No units
     except AttributeError:
         pass
     try:
-        jr = accs[0].value
-        Lz = accs[1].value
-        jz = accs[2].value
+        jr = accs[0].to(apu.kpc*apu.km/apu.s).value
+        jp = accs[1].to(apu.kpc*apu.km/apu.s).value
+        jz = accs[2].to(apu.kpc*apu.km/apu.s).value
     except AttributeError:
-        jr = accs[0]
-        Lz = accs[1]
-        jz = accs[2]
+        jr = accs[0]*ro*vo
+        jp = accs[1]*ro*vo
+        jz = accs[2]*ro*vo
     try:
-        E = E.value
-        Lz = Lz.value
+        E = E.to(apu.km*apu.km/apu.s/apu.s).value
+        Lz = Lz.to(apu.kpc*apu.km/apu.s).value
     except AttributeError:
-        pass
+        E *= (vo*vo)
+        Lz *= (ro*vo)
     
     eELzs = np.array([ecc,E,Lz])
-    actions = np.array([jr,Lz,jz])
+    actions = np.array([jr,jp,jz])
     
     return [orbs_samp,eELzs,actions]
-  
+
 
 def fit_smooth_spline(x,y,s=0):
     '''fit_smooth_spline:
