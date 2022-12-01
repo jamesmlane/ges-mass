@@ -472,8 +472,9 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
                 plt.close(fig)
                 
 
-def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
-    fig_dir,ro,vo,zo,make_SF_plots=False,denspot=None):
+def create_kSF_grid(selec_spaces, apogee_effSF, apogee_fields, ds,
+    kSF_dir, fig_dir, ro, vo, zo, spline_type='linear', make_SF_plots=False, 
+    denspot=None, make_purity_grid=True):
     '''apply_kSF_splines_to_effSF:
 
     Use the kSF spline grid to generate the kSF correction over the distance 
@@ -482,17 +483,19 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
     Args:
         selec_spaces (list) - List of strings corresponding to the kinematic 
             selection
-        effSF_grid (np array) - Effective selection function grid with shape 
+        apogee_effSF (np array) - Effective selection function grid with shape 
             [nfields,ndistmods]
         apogee_fields (np recarray) APOGEE field information array
         ds (np array) - Distance grid in kpc
         kSF_dir (string) - Kinematic selection function directory where the 
             spline files are stored
         fig_dir (string) - Place to store figures
+        ro,vo,zo (float) - galpy scale lengths / solar position
+        spline_type (str) - Type of spline to create, either 'linear',
+            'cubic', or 'both' ['linear']
         make_sf_plots (bool) - Make plots of the SFs
         denspot (galpy.potential.Potential) - Density profile to weight 
             SFs along LOS for proper visualization
-        ro,vo,zo (float) - galpy scale lengths / solar position
 
     Returns:
         keffSF_grid (array) - kinematic effective selection function grid with 
@@ -502,45 +505,108 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
     logds = np.log10(ds)
     ndistmods = len(ds)
     nfields = len(apogee_fields)
-    assert effSF_grid.shape == (nfields,ndistmods), 'insane :('
+    assert apogee_effSF.shape == (nfields,ndistmods), 'insane :('
     
     # Filenames based on kinematic spaces used to select GES stars
     selec_spaces_suffix = '-'.join(selec_spaces)
     if make_SF_plots:
         os.makedirs(fig_dir+selec_spaces_suffix,exist_ok=True)
-    kSF_spline_filename = kSF_dir+'ksf_splines_'+selec_spaces_suffix+'.pkl'
-    print('Loading kinematic selection function spline grid from '\
-          +kSF_spline_filename)
-    with open(kSF_spline_filename,'rb') as f:
-        completeness_splines,_,spline_locids = pickle.load(f)
+    if spline_type in ['linear','both']:
+        spline_linear_filename = kSF_dir+'kSF_splines_linear_'+\
+            selec_spaces_suffix+'.pkl'
+        print('\nLoading linear kinematic selection function spline grid from '\
+          +spline_linear_filename)
+        with open(spline_linear_filename,'rb') as f:
+            completeness_linear_splines,purity_linear_splines,spline_locids = \
+                pickle.load(f)
+    if spline_type in ['cubic','both']:
+        spline_cubic_filename = kSF_dir+'kSF_splines_cubic_'+\
+            selec_spaces_suffix+'.pkl'
+        print('\nLoading cubic kinematic selection function spline grid from '\
+          +spline_cubic_filename)
+        with open(spline_cubic_filename,'rb') as f:
+            completeness_cubic_splines,purity_cubic_splines,spline_locids = \
+                pickle.load(f)
 
     # Create a grid to map the splines onto
-    kSF_grid = np.zeros_like(effSF_grid)
+    kSF_grid_cubic = np.zeros_like(apogee_effSF)
+    kSF_grid_linear = np.zeros_like(apogee_effSF)
+    purity_grid_cubic = np.zeros_like(apogee_effSF)
+    purity_grid_linear = np.zeros_like(apogee_effSF)
 
     # Loop over each location and apply the kSF splines to the grid
     for i in range(nfields):
         assert spline_locids[i] == apogee_fields['LOCATION_ID'][i]
-
-        # Make sure the kSF is positive everywhere
-        spline_kSF_raw = completeness_splines[i](logds)
-        spline_kSF_raw[spline_kSF_raw < 0] = 0
-        kSF_grid[i,:] = spline_kSF_raw
+        
+        if spline_type in ['linear','both']:
+            spline_kSF_raw_linear = completeness_linear_splines[i](logds)
+            kSF_grid_linear[i,:] = spline_kSF_raw_linear
+            if make_purity_grid:
+                spline_purity_raw_linear = purity_linear_splines[i](logds)
+                purity_grid_linear[i,:] = spline_purity_raw_linear
+            
+        if spline_type in ['cubic','both']:
+            # Make sure the cubic kSF is positive everywhere
+            spline_kSF_raw_cubic = completeness_cubic_splines[i](logds)
+            spline_kSF_raw_cubic[spline_kSF_raw_cubic < 0] = 0
+            kSF_grid_cubic[i,:] = spline_kSF_raw_cubic
+            if make_purity_grid:
+                spline_purity_raw_cubic = purity_cubic_splines[i](logds)
+                purity_grid_cubic[i,:] = spline_purity_raw_cubic
     
     # Apply the kinematic selection function to the effective selection function
-    keffSF_grid = effSF_grid*kSF_grid
-    
-    kSF_filename = kSF_dir+'ksf_grid_'+selec_spaces_suffix+'.dat'
-    print('Saving kinematic selection function grid to '+kSF_filename)
-    with open(kSF_filename,'wb') as f:
-        pickle.dump(kSF_grid,f)
+    # then save
+    if spline_type in ['linear','both']:
+        # kinematic selection function grid
+        kSF_filename_linear = kSF_dir+'kSF_grid_linear_'+\
+            selec_spaces_suffix+'.dat'
+        print('\nSaving kinematic selection function grid to '+\
+              kSF_filename_linear)
+        with open(kSF_filename_linear,'wb') as f:
+            pickle.dump(kSF_grid_linear,f)
+        if make_purity_grid:
+            purity_filename_linear = kSF_dir+'purity_grid_linear_'+\
+                selec_spaces_suffix+'.dat'
+            print('\nSaving purity grid to '+\
+                  purity_filename_linear)
+            with open(purity_filename_linear,'wb') as f:
+                pickle.dump(purity_grid_linear,f)
         
-    keffSF_filename = kSF_dir+'apogee_keffSF_grid_inclArea_'\
-                             +selec_spaces_suffix+'.dat'
-    print('Saving kinematic effective selection function to '+keffSF_filename)
-    with open(keffSF_filename,'wb') as f:
-        pickle.dump(keffSF_grid,f)
+        # kinematic effective selection funcion
+        # keffSF_filename_linear = kSF_dir+'apogee_keffSF_grid_inclArea_linear_'\
+        #                      +selec_spaces_suffix+'.dat'
+        # keffSF_grid_linear = apogee_effSF*kSF_grid_linear
+        # print('\nSaving kinematic effective selection function to '+\
+        #       keffSF_filename_linear)
+        # with open(keffSF_filename_linear,'wb') as f:
+        #     pickle.dump(keffSF_grid_linear,f)
+        
+    if spline_type in ['cubic','both']:
+        # kinematic selection function grid
+        kSF_filename_cubic = kSF_dir+'kSF_grid_cubic_'+\
+            selec_spaces_suffix+'.dat'
+        print('\nSaving kinematic selection function grid to '+\
+              kSF_filename_cubic)
+        with open(kSF_filename_cubic,'wb') as f:
+            pickle.dump(kSF_grid_cubic,f)
+        if make_purity_grid:
+            purity_filename_cubic = kSF_dir+'purity_grid_cubic_'+\
+                selec_spaces_suffix+'.dat'
+            print('\nSaving purity grid to '+\
+                  purity_filename_cubic)
+            with open(purity_filename_cubic,'wb') as f:
+                pickle.dump(purity_grid_cubic,f)
+        
+        # kinematic effective selection funcion
+        # keffSF_filename_cubic = kSF_dir+'apogee_keffSF_grid_inclArea_cubic_'\
+        #                      +selec_spaces_suffix+'.dat'
+        # keffSF_grid_cubic = effSF_grid*kSF_grid_cubic
+        # print('\nSaving kinematic effective selection function to '+\
+        #       keffSF_filename_cubic)
+        # with open(keffSF_filename_cubic,'wb') as f:
+        #     pickle.dump(keffSF_grid_cubic,f)
     
-    # Make plots 
+    # Make plots
     if make_SF_plots:
         
         # Create a large linear grid of orbits representing positions where 
@@ -603,7 +669,13 @@ def apply_kSF_splines_to_effSF(selec_spaces,effSF_grid,apogee_fields,ds,kSF_dir,
         
         fig.savefig(fig_dir+selec_spaces_suffix+'/SF_map.pdf')
         plt.close(fig)
-    return keffSF_grid
+        
+    #if spline_type in 'both':
+    #    return keffSF_grid_linear, keffSF_grid_cubic
+    #elif spline_type in 'linear':
+    #    return keffSF_grid_linear
+    #elif spline_type in 'cubic':
+    #    return keffSF_grid_cubic
 
 # -----------------------------------------------------------------------------
 
