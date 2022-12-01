@@ -15,6 +15,7 @@ __author__ = "James Lane"
 ### Imports
 import numpy as np
 import os
+import dill as pickle
 import copy
 from astropy import units as apu
 from astropy import coordinates
@@ -22,9 +23,11 @@ from galpy import orbit
 from galpy import actionAngle as aA
 import apogee.tools as apotools
 import apogee.tools.read as apread
+import mwdust
 import pdb
 
 from . import plot as pplot
+from . import mass as pmass
 
 # ----------------------------------------------------------------------------
 
@@ -136,7 +139,7 @@ def parse_config_dict(cdict,keyword):
                   'FEH_MIN','FEH_MAX','FEH_MIN_GSE','FEH_MAX_GSE','M_MIN']
     int_kws =    ['NPROCS','NDMOD']
     string_kws = ['HOME_DIR','BASE_DIR','APOGEE_DR','APOGEE_RESULTS_VERS',
-                  'GAIA_DR']
+                  'GAIA_DR','DF_VERSION','KSF_VERSION']
     
     for key in _keyword:
         if key in float_kws:
