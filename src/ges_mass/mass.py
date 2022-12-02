@@ -1147,30 +1147,34 @@ def pdistmod_sample(densfunc, samples, effsel, Rgrid, phigrid, zgrid,
     Args:
         densfunc (function) - Density profile
         samples (array) - (Nsamples,params) shaped array to draw parameters from
-        n_samples (int) - Number of times to draw parameters from samples
         effsel (array) - Effective selection function (Nfield x Ndistmod)
         Rgrid (array) - Grid of R corresponding to effsel
         phigrid (array) - Grid of phi corresponding to effsel
         zgrid (array) - Grid of z corresponding to effsel
         distmods (array) - Grid of distance moduli
         return_rate (bool) - Return the rate function as well.
+        verbose (bool) - Be verbose? [default False]
     
     Returns:
         pd (array) - Normalized number of counts summed over all fields
         pdt (array) - Number of counts summed over all fields
         rate (array) - Raw number of counts per field, only if return_rate=True
     '''
+    samples = np.atleast_2d(samples)
+    n_samples = samples.shape[0]
     pd = np.zeros((n_samples,effsel.shape[1]))
     pdt = np.zeros((n_samples,effsel.shape[1]))
     rate = np.zeros((n_samples,effsel.shape[0],effsel.shape[1]))
-    sample_randind = np.random.choice(len(samples),n_samples,replace=False)
-    for i,params in enumerate(samples[sample_randind]):
+    for i,params in enumerate(samples):
         _pd,_pdt,_r = pdistmod_one_model(densfunc, params, effsel, Rgrid, 
                                          phigrid, zgrid, distmods,
                                          return_rate=True)
         pd[i,:] = _pd
         pdt[i,:] = _pdt
         rate[i,:,:] = _r
+        if verbose:
+            print('Calculated pdistmod for '+str(i+1)+'/'+str(n_samples),
+                  end='\r')
     if return_rate:
         return pd, pdt, rate
     else:
