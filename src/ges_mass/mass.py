@@ -1134,8 +1134,8 @@ def pdistmod_one_model(densfunc, params, effsel, Rgrid, phigrid, zgrid, distmods
     else:
         return pd, pdt
 
-def pdistmod_sample(densfunc, samples, n_samples, effsel, Rgrid, phigrid, zgrid,
-                    distmods, return_rate=False):
+def pdistmod_sample(densfunc, samples, effsel, Rgrid, phigrid, zgrid,
+                    distmods, return_rate=False, verbose=False):
     '''pdistmod_sample:
     
     Return the expected distance modulus distribution for a set of models 
