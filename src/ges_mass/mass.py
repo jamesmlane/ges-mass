@@ -1178,272 +1178,945 @@ def pdistmod_sample(densfunc, samples, effsel, Rgrid, phigrid, zgrid,
     if return_rate:
         return pd, pdt, rate
     else:
-        return pd, pdt    
+        return pd, pdt
 
-# def pdistmod_check_fit(densfunc, samp, effsel, Rgrid, phigrid, zgrid, ds, 
-#                        goodindx, sample=False):
-#     '''pdistmod_check_fit:
-    
-#     Determine the distance modulus distribution for a given model
-    
-#     Args:
-#         densfunc (function) - Density profile
-#         samp (array) - Fitted set of parameters for the density model
-#         effsel (array) - Effective selection function (Nfield x Ndistmod)
-#         Rgrid (array) - Grid of R corresponding to effsel
-#         phigrid (array) - Grid of phi corresponding to effsel
-#         zgrid (array) - Grid of z corresponding to effsel
-#         ds (array) - Grid of distances corresponding to the distance modulus 
-#             grid
-#         goodindx (array) - Usable fields in the effective selection function
-#         sample (bool) - Sample based on a range of model parameters
-    
-#     Returns:
-        
-#     '''
-#     pds = np.empty((200,len(ds)))
-#     if sample:
-#         for ii,params in tqdm.tqdm_notebook(enumerate(samp[np.random.randint(len(samp), size=200)]), total=200):
-#             pd, pdt,rate = pdistmod_model(densfunc, params, effsel, Rgrid, 
-#                 phigrid, zgrid, ds, goodindx, returnrate=True)
-#             pds[ii] = pd
-#         return pds
-#     else:
-#         pd, pdt, rate = pdistmod_model(densfunc, np.median(samp,axis=0), effsel, 
-#             Rgrid, phigrid, zgrid, ds, goodindx, returnrate=True)
-#         return pd
-#     ##ie
-# #def
 
-    
-# def fit_bin_mask(mask, effsel, goodindx, fehrange, 
-#                  model=pdens.triaxial_single_angle_aby, 
-#                  just_MLE=True, just_MCMC=False, mass=False, 
-#                  init=[2.,0.5,0.5,0.8,1/10.,0.5,0.5,0.5], ncut=40, 
-#                  mass_analytic=False, inttype='spherical'):
-#     '''fit_bin_mask:
-    
-#     Fit a density profile to data in a bin defined by a mask. Can use either 
-#     maximum likelihood, MCMC, or both.
-    
-#     Args:
-#         mask (bool array)
-#         effsel (array) - Effective selection function (Nfield x Ndistmod)
-#         goodindx (array) - Usable fields in the effective selection function
-#         fehrange (list) - The range in [Fe/H] defined by the mask
-        
-#         model (function) - Density model function
-#         just_MLE
-#         just_MCMC
-#         mass
-#         init
-#         ncut
-#         mass_analytic (bool) - Compute the density profile normalizing mass 
-#             analytically. Only works for spherical density profiles.
-#         mass_int_type (str) - Coordinate basis for integration to calculate the 
-#             normalizing mass of the density profile. Can be either
-#             'spherical' or 'cartesian'.
-        
-    
-#     Returns:
-        
-#     '''
-    
-    
-#     '''Fits the stars defined by a mask to the APOGEE low metallicity sample
-#     IN:
-#     mask - must be same length as gaia2_matches[omask], and must have Fe/H limits that go into fehrange.
-#     fehrange - the range in Fe/H spanned by the sample defined by mask
-#     effsel - the effective selection function corresponding to the sample in mask
-#     model - the density model to be fit
-#     just_MLE - do the Maximum Likelihood and return opt
-#     just_MCMC - do the MCMC
-#     mass - also compute the total mass
-#     init - initial input parameters for the density model
-#     ncut - number of samples to cut from each MCMC chain
-#     analytic - compute the mass integral analytically (only works for spherical density models)
-#     inttype - the coordinate scheme for the integration grid for mass computation
-#     OUTPUT:
-#     opt - opt from op.minimize
-#     samples - MCMC samples
-#     masses - MC samples of mass
-#     facs - the normalisation factor corresponding to each mass sample
-#     '''
-#     #needs goodindx defined above. 'mask' must be same length as gaia2_matches[omask].
-#     #print(sum(mask))
-    
-#     # If we're not just doing MCMC then find the MLE starting point
-#     if not just_MCMC:
-#         # do MLE. 
-#         opt = op.fmin(lambda x: putil.mloglike(x,model, 
-#             effsel[goodindx]*ds**3.*np.log(10)/5.*(distmods[1]-distmods[0]), 
-#             Rgrid[goodindx], phigrid[goodindx], zgrid[goodindx], 
-#             mrpz[:,0][mask]*8., mrpz[:,1][mask], mrpz[:,2][mask]*8.), 
-#             init, full_output=True)
-#         print(opt[0])
-#         if just_MLE:
-#             return opt
-#         ##fi
-#     ##fi
-    
-#     # do MCMC initialised from best result from MLE or from init params given
-#     ndim, nwalkers = len(init), 200
-#     if just_MCMC:
-#         pos = [init + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
-#     else:
-#         pos = [opt[0] + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
-#     nit = 200
-#     threads = 4
-#     #only effsel for good fields
-#     effsel_in = effsel[goodindx]*ds**3*np.log(10)/5.*(distmods[1]-distmods[0])
-#     #re-build Rphiz grid
-#     Rgrid_in, phigrid_in, zgrid_in = Rgrid[goodindx], phigrid[goodindx], zgrid[goodindx]
-    
-#     #set up sampler and do the sampling.
-#     with multiprocessing.Pool(nprocs) as pool:
-#         sampler = emcee.EnsembleSampler(nwalkers, ndim, util.loglike, 
-#             args=(model, effsel_in, Rgrid_in, phigrid_in, zgrid_in, 
-#             mrpz[:,0][mask]*8., mrpz[:,1][mask], mrpz[:,2][mask]*8.), 
-#             pool=pool)
-#         print('Generating MCMC samples...')
-#         for i, result in enumerate(sampler.sample(pos, iterations=nit)):
-#             if (i+1)%10 == 0: print('sampled '+str(i+1)+'/'+str(nit))
-#             continue
-#         ###i
-#         #cut ncut samples from each chain
-#         samples = sampler.chain[:, ncut:, :].reshape((-1, ndim))
-#     ##wi
-    
-#     # Return if not determining mass
-#     if not mass:
-#         if just_MCMC:
-#             return samples
-#         else:
-#             return opt, samples
-#         ##ie
-#     ##fi
-    
-#     # Determine the isochrone mass fraction factors
-#     isofactors = np.zeros(len(effsel[goodindx]))
-#     for i in range(len(isofactors)):   
-#         isomask = (Z2FEH(isorec['Zini']) > fehrange[0]) & (Z2FEH(isorec['Zini']) < fehrange[1]) & (isorec['Jmag']-isorec['Ksmag'] > jkmins[goodindx][i]) & (isorec['logg'] < 3) & (isorec['logg'] > 1) & (isorec['logAge'] > 10)
-#         avmass = util.average_mass(isorec[isomask], lowfehgrid=True)
-#         isomask = (Z2FEH(isorec['Zini']) > fehrange[0]) & (Z2FEH(isorec['Zini']) < fehrange[1]) & (isorec['logAge'] > 10)  #& (isorec['J']-isorec['K'] > 0.3) & (isorec['logg'] < 3) & (isorec['logg'] > 1)
-#         massratio = util.mass_ratio(isorec[isomask], lowfehgrid=True, minjk=jkmins[goodindx][i])
-#         isofactors[i] = avmass/massratio
-#     print(np.unique(isofactors))
-    
-#     #set up grid for integration
-#     if mass_int_type == 'spherical':
-#         rthetaphigrid = np.mgrid[2.:70:150j,0:np.pi:150j,0:2*np.pi:150j]
-#         dr = (70-2.)/149
-#         dtheta = (np.pi-0.)/149
-#         dphi = (2*np.pi-0.)/149
-#         shape = np.shape(rthetaphigrid.T)
-#         rthetaphigrid = rthetaphigrid.T.reshape(np.product(shape[:3]),shape[3])
-#         deltafactor = rthetaphigrid[:,0]**2*np.sin(rthetaphigrid[:,1])*dr*dtheta*dphi
-#         x = rthetaphigrid[:,0]*np.sin(rthetaphigrid[:,1])*np.cos(rthetaphigrid[:,2])
-#         y = rthetaphigrid[:,0]*np.sin(rthetaphigrid[:,1])*np.sin(rthetaphigrid[:,2])
-#         z = rthetaphigrid[:,0]*np.cos(rthetaphigrid[:,1])
-#         xyzgrid = np.dstack([x,y,z])[0]
-#         rphizgrid = coords.rect_to_cyl(xyzgrid[:,0], xyzgrid[:,1], xyzgrid[:,2])
-#         rphizgrid = np.dstack([rphizgrid[0],rphizgrid[1],rphizgrid[2]])[0]
-#     if mass_int_type == 'cartesian':
-#         xyzgrid = np.mgrid[-50.:50.:150j,-50.:50.:150j,-50.:50.:150j]
-#         delta = xyzgrid[0,:,0,0][1]-xyzgrid[0,:,0,0][0]
-#         deltafactor = delta**3
-#         shape = np.shape(xyzgrid.T)
-#         xyzgrid = xyzgrid.T.reshape(np.product(shape[:3]),shape[3])
-#         rphizgrid = coords.rect_to_cyl(xyzgrid[:,0], xyzgrid[:,1], xyzgrid[:,2])
-#         rphizgrid = np.dstack([rphizgrid[0],rphizgrid[1],rphizgrid[2]])[0]
-#     if model is pdens.triaxial_single_angle_zvecpa_plusexpdisk or model is pdens.triaxial_einasto_zvecpa_plusexpdisk or model is pdens.triaxial_broken_angle_zvecpa_plusexpdisk or model is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
-#         masses = np.zeros((400,3))
-#     else:
-#         masses = np.zeros(400)
-#     facs = np.zeros(400)
-    
-#     # Calculate the mass
-#     print('Calculating mass')
-#     for ii,params in enumerate(samples[np.random.choice(len(samples), 400, replace=False)]):
-#         rate=model(Rgrid[goodindx],phigrid[goodindx],zgrid[goodindx],params=params)*effsel[goodindx]*ds**3*np.log(10)/5.*(distmods[1]-distmods[0])
-#         sumrate = np.sum(rate.T/isofactors)
-#         norm = sum(mask)/sumrate
-#         fac = norm*(180./np.pi)**2
-#         if mass_analytic:
-#             #only for spherical power law!
-#             rsun = np.sqrt(8.**2+0.02**2)
-#             min_r = 2.
-#             max_r = 70.
-#             alpha = params[0]
-#             integral = 4*np.pi*((rsun**alpha*max_r**(3-alpha))/(3-alpha)-(rsun**alpha*min_r**(3-alpha))/(3-alpha))
-#             masses[ii] = integral*fac
-#         else:
-#             if model is pdens.triaxial_single_angle_zvecpa_plusexpdisk or model is pdens.triaxial_einasto_zvecpa_plusexpdisk or model is pdens.triaxial_broken_angle_zvecpa_plusexpdisk or model is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
-#                 denstxyz = model(rphizgrid[:,0],rphizgrid[:,1],rphizgrid[:,2], params=params, split=True)
-#                 halodens = denstxyz[0]*fac
-#                 diskdens = denstxyz[1]*fac
-#                 fulldens = model(rphizgrid[:,0],rphizgrid[:,1],rphizgrid[:,2], params=params)*fac
-#                 masses[ii] = np.sum(halodens*deltafactor), np.sum(diskdens*deltafactor), np.sum(fulldens*deltafactor)
-#             else:
-#                 denstxyz = model(rphizgrid[:,0],rphizgrid[:,1],rphizgrid[:,2], params=params)*fac
-#                 masses[ii] =  np.sum(denstxyz*deltafactor)
-#         #densfunc = lambda r,phi,z: r*model(r,phi,z,params=params)
-#         #integral = nquad(densfunc, [[3.,50.],[0.,2*np.pi],[-30.,30.]])
-#         #masses[ii] = integral[0]*fac
-#         facs[ii] = fac
-#     ###i
-    
-#     if just_MCMC:
-#         return samples, masses, facs
-#     return opt, samples, masses, facs
-# #def
+### Fitting class
 
-### Defunct
+class HaloFit:
+    '''HaloFit:
+    
+    Convenience class to wrap all of the information needed by various 
+    fitting and plotting routines.
+    '''
+    
+    # Initialize
+    
+    def __init__(self,
+                 allstar=None,
+                 orbs=None,
+                 densfunc=None,
+                 nwalkers=None,
+                 nit=None,
+                 ncut=None,
+                 selec=None,
+                 usr_log_prior=None,
+                 n_mass=None,
+                 effsel=None,
+                 dmods=None,
+                 effsel_grid=None,
+                 effsel_mask=None,
+                 iso=None,
+                 iso_filename=None,
+                 int_r_range=None,
+                 feh_range=None,
+                 logg_range=None,
+                 jkmins=None,
+                 init=None,
+                 init_type=None,
+                 fit_dir=None,
+                 gap_dir=None,
+                 ksf_dir=None,
+                 fit_type=None,
+                 mask_disk=True,
+                 mask_halo=True,
+                 version='',
+                 verbose=False,
+                 ro=None,
+                 vo=None,
+                 zo=None
+                ):
+        '''__init__:
+        
+        Initialize a HaloFit class
+        
+        Args:
+            allstar (array) - APOGEE allstar without any observational masking
+                applied. Should just come from cleaning notebook
+            orbs (orbit.Orbit) - orbit.Orbit corresponding to allstar data
+            densfunc (callable) - Density profile
+            nwalkers (int) - Number of MCMC walkers
+            nit (int) - Number of steps to run each walker
+            ncut (int) - Number of steps to trim from beginning of each chain
+            selec (str or arr) - Kinematic selection space
+            usr_log_prior (callable) - User supplied log prior for densfunc
+            n_mass (int) - Number of masses to calculate
+            effsel (array) - Effective selection function calculated on a grid 
+                of size (nfield,ndmod) without kinematic selection effects
+            dmods (array) - Array of distance modulus
+            effsel_grid (list) - Length-3 list of grids of shape (effsel) 
+                representing R,phi,z positions where the selection function is 
+                evaluated
+            effsel_mask (array) - Effective selection function grid mask of 
+                shape (effsel)
+            iso (array) - Isochrone grid
+            iso_filename (str) - Filename to access the isochrone grid
+            int_r_range (array) - 2-element list of spherical integration range
+            feh_range (array) - 2-element list of Fe/H min, Fe/H max
+            logg_range (array) - 2-element list of logg min, logg max
+            jkmins (array) - Array of minimum (J-K) values
+            init (array) - Supply initialization parameters, if None then 
+            init_type (bool) - Type of initialization to 
+            fit_dir (str) - Directory for holding fitting data and figures
+            gap_dir (str) - Gaia-APOGEE processed data directory
+            ksf_dir (str) - kSF directory
+            fit_type (str) - string specifying the type of fit. Should be one 
+                of ['gse','all']
+            mask_disk (bool) - Mask the disk if fit_type='gse'? [default True]
+            mask_halo (bool) - Use a halo mask from IDs if fit_type='all'?
+                [default True]
+            version (str) - Version string to add to filenames
+            verbose (bool) - Print info to screen
+            ro,vo,zo (float) - Galpy scales, also solar cylindrical radius. zo 
+                is Solar height above the plane
+        
+        Returns:
+            None
+        '''
+        # Unmasked data
+        if allstar is not None and orbs is not None:
+            assert len(allstar)==len(orbs), 'allstar,orbs length must be equal'
+        # self.allstar_nomask = allstar
+        # self.orbs_nomask = orbs
+        
+        # Density profile
+        self.densfunc = densfunc
+        
+        # Kinematic selection space
+        if selec is not None:
+            if isinstance(selec,str): selec=[selec,]
+            selec_suffix = '-'.join(selec)
+        else:
+            selec_suffix = None
+        self.selec = selec_suffix
+        self.selec_arr = selec
+        
+        # MCMC info
+        self.nwalkers = nwalkers
+        self.nit = nit
+        self.ncut = ncut
+        
+        # Log prior
+        if usr_log_prior is not None:
+            self.usr_log_prior = usr_log_prior
+        else:
+            self.usr_log_prior = _null_prior
+        
+        # Mass calculation info
+        if n_mass is None:
+            n_mass = int(nwalkers*(nit-ncut))
+        self.n_mass = n_mass
+        self.int_r_range = int_r_range
+        
+        # Isochrone
+        self.iso = iso
+        self.iso_filename = iso_filename
+        
+        # J-K minimums
+        self.jkmins = jkmins
+        
+        # [Fe/H], logg range
+        feh_min, feh_max = feh_range
+        logg_min, logg_max = logg_range
+        self.feh_range = feh_range
+        self.logg_range = logg_range
+        self.feh_min = feh_min
+        self.feh_max = feh_max
+        self.logg_min = logg_min
+        self.logg_max = logg_max
+        
+        # Fit type info
+        if fit_type is not None:
+            assert fit_type in ['gse','gse_map','all','all_map']
+        else:
+            warnings.warn('fit_type is required to access data')
+            fit_type = ''
+        self.fit_type = fit_type
+        
+        # I/O directories
+        if fit_dir[-1] != '/': fit_dir+='/'
+        self.fit_dir = fit_dir
+        self.gap_dir = gap_dir
+        self.ksf_dir = ksf_dir
+        
+        # Version
+        if version != '':
+            if version[-1] != '/': version+='/'
+        else:
+            version = ''
+        self.version = version
+        
+        # Output directories
+        if 'all' in fit_type:
+            selec_str = ''
+        else:
+            selec_str = selec_suffix+'/'
+        fit_data_dir = fit_dir+'data/'+fit_type+'/'+selec_str+str(feh_min)+\
+                       '_feh_'+str(feh_max)+'/'+densfunc.__name__+'/'+version
+        fit_fig_dir = fit_dir+'fig/'+fit_type+'/'+selec_str+str(feh_min)+\
+                      '_feh_'+str(feh_max)+'/'+densfunc.__name__+'/'+version
+        if not os.path.exists(fit_data_dir):
+            os.makedirs(fit_data_dir,exist_ok=True)
+        if not os.path.exists(fit_fig_dir):
+            os.makedirs(fit_fig_dir,exist_ok=True)
+        self.fit_data_dir = fit_data_dir
+        self.fit_fig_dir = fit_fig_dir
+        
+        # Prepare the effective selection function
+        self.effsel = effsel
+        self.effsel_mask = effsel_mask
+        Rgrid,phigrid,zgrid = effsel_grid
+        self.Rgrid = Rgrid
+        self.phigrid = phigrid
+        self.zgrid = zgrid
+        self.dmods = dmods
+        
+        # Get the kinematic effective selection function
+        if 'gse' in fit_type:
+            ksel = self.get_ksel(spline_type='linear',mask=True)
+            keffsel = effsel*ksel
+            assert np.all( ~np.all(keffsel < 1e-9, axis=1) ),\
+                'Null fields still in keffSF'
+            self.keffsel = keffsel
+        else:
+            self.keffsel = None
+        
+        # Galpy scales and zo
+        self.ro = ro
+        self.vo = vo
+        self.zo = zo
+        
+        # Verbosity
+        self.verbose = verbose
+        
+        # Mask out GS/E stars
+        if 'gse' in fit_type:
+            self.mask_disk = mask_disk
+            self.mask_halo = None
+            self.halo_mask = None
+            gse_mask_filename = gap_dir+'hb_apogee_ids_'+selec_suffix
+            if mask_disk:
+                gse_mask_filename += '_dmask.npy'
+            else:
+                gse_mask_filename += '.npy'
+            gse_apogee_IDs = np.load(gse_mask_filename)
+            gse_mask = np.in1d(allstar['APOGEE_ID'].astype(str),gse_apogee_IDs)
+            orbs_gse = orbs[gse_mask]
+            allstar_gse = allstar[gse_mask]
+            self.gse_mask = gse_mask
 
-# def join_on_id(dat1,dat2,joinfield='APOGEE_ID'):
-#     '''join_on_id:
-# 
-#     Takes two recarrays and joins them based on a ID string. Only overlapping 
-#     entries will be present in the output.
-# 
-#     Args:
-#         dat1 (numpy.recarray) - First set of data
-#         dat2 (numpy.recarray) - Second set of data
-#         joinfield (string) - Field that joins the data
-# 
-#     Returns:
-#         dat1 (numpy.recarray) - Joined data
-#     '''
-#     #find common fields
-#     names1 = [dat1.dtype.descr[i][0] for i in range(len(dat1.dtype.descr))]
-#     names2 = [dat2.dtype.descr[i][0] for i in range(len(dat2.dtype.descr))]
-#     namesint = np.intersect1d(names1,names2)
-#     if joinfield not in namesint:
-#         return NameError('Field '+joinfield+' is not present in both arrays.')
-#     #work out which fields get appended from dat2
-#     descr2 = dat2.dtype.descr
-#     fields_to_append = []
-#     names_to_append = []
-#     for i in range(len(names2)):
-#         if names2[i] not in namesint:
-#             fields_to_append.append(descr2[i])
-#             names_to_append.append(names2[i])
-#         else:
-#             continue   
-#     newdtype= dat1.dtype.descr+fields_to_append
-#     newdata= np.empty(len(dat1),dtype=newdtype)
-#     for name in dat1.dtype.names:
-#         newdata[name]= dat1[name]
-#     for f in names_to_append:
-#         newdata[f]= np.zeros(len(dat1))-9999.
-#     dat1= newdata
-# 
-#     hash1= dict(zip(dat1[joinfield],
-#                     np.arange(len(dat1))))
-#     hash2= dict(zip(dat2[joinfield],
-#                     np.arange(len(dat2))))
-#     common, indx1, indx2 = np.intersect1d(dat1[joinfield],dat2[joinfield],return_indices=True)
-#     for f in names_to_append:
-#         dat1[f][indx1]= dat2[f][indx2]
-#     return dat1
-# #def
+            # Obervational masking
+            obs_mask = (allstar_gse['FE_H'] > feh_min) &\
+                       (allstar_gse['FE_H'] < feh_max) &\
+                       (allstar_gse['LOGG'] > logg_min) &\
+                       (allstar_gse['LOGG'] < logg_max)
+            self.obs_mask = obs_mask
+            orbs_obs = orbs_gse[obs_mask]
+            allstar_obs = allstar_gse[obs_mask]
+            
+        elif 'all' in fit_type:
+            self.gse_mask = None
+            self.mask_disk = None
+            self.mask_halo = mask_halo
+            if mask_halo:
+                halo_mask_filename = gap_dir+'halo_apogee_ids.npy'
+                halo_apogee_IDs = np.load(halo_mask_filename)
+                halo_mask = np.in1d(allstar['APOGEE_ID'].astype(str),
+                                    halo_apogee_IDs)
+                self.halo_mask = halo_mask
+            else:
+                self.halo_mask = None
+            
+            obs_mask = (allstar['LOGG'] > logg_min) &\
+                       (allstar['LOGG'] < logg_max)
+            
+            if mask_halo:
+                obs_mask = obs_mask & halo_mask
+            else: # Use a default metallicity selection
+                obs_mask = obs_mask & (allstar['FE_H'] > feh_min) &\
+                                      (allstar['FE_H'] < feh_max)
+            
+            self.obs_mask = obs_mask
+            orbs_obs = orbs[obs_mask]
+            allstar_obs = allstar[obs_mask] 
+            
+        mrpz = np.array([orbs_obs.R(use_physical=True).value,
+                         orbs_obs.phi(use_physical=True).value,
+                         orbs_obs.z(use_physical=True).value]).T
+        Rdata,phidata,zdata = mrpz.T
+        self.orbs = orbs_obs
+        self.allstar = allstar_obs
+        self.Rdata = Rdata
+        self.phidata = phidata
+        self.zdata = zdata
+        self.n_star = len(orbs_obs)
+        
+        # Initialization
+        self.init_type = init_type
+        if init is None:
+            if init_type is None:
+                if verbose:
+                    print('Using default init')
+                init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
+            else:
+                if verbose:
+                    print('Using informed init')
+                init = self.get_densfunc_mcmc_init_informed(init_type=init_type,
+                    verbose=verbose)
+        self.init = init
+        
+        # Initialize variables that will be set once analysis is complete
+        self.opt_init = None
+        self.opt_post = None
+        self.samples = None
+        self.sampler = None
+        self.masses = None
+        self.mass_inds = None
+        self.facs = None
+        self.isofactors = None
+        self.ml = None
+        self.ml_ind = None
+        self.aic = None
+        self.bic = None
+        self.loglike = None
+        
+    # Getters
+    
+    def get_fit_effsel(self):
+        '''get_fit_effsel:
+        
+        Get the proper effective selection function for the fit
+        '''
+        if self.fit_type in ['gse','gse_map']:
+            return self.keffsel
+        elif self.fit_type in ['all','all_map']:
+            return self.effsel
+    
+    def get_effsel_list(self):
+        '''get_effsel_list:
+        
+        Return a list of effective selection function position grids:
+        [Rgrid,phigrid,zgrid]
+        '''
+        return [self.Rgrid,self.phigrid,self.zgrid]
+    
+    def get_data_list(self):
+        '''get_data_grid:
+        
+        Return a list of data positions:
+        [Rdata,phidata,zdata]
+        '''
+        return [self.Rdata,self.phidata,self.zdata]
+    
+    def get_iso(self):
+        '''get_iso:
+        
+        Get the isochrone grid
+        '''
+        if self.iso is not None:
+            return self.iso
+        elif self.iso_filename is not None:
+            return np.load(self.iso_filename)
+        else:
+            print('iso_filename not set, returning None')
+            return None
+    
+    def get_ksel(self,spline_type='linear',mask=True):
+        '''get_ksel:
+        
+        Return the kinematic effective selection function
+        '''
+        ksel_filename = self.ksf_dir+'kSF_grid_'+spline_type+'_'+\
+            self.selec+'.dat'
+        with open(ksel_filename,'rb') as f:
+            print('\nLoading APOGEE kin. eff. sel. grid from '+ksel_filename)
+            ksel = pickle.load(f)
+        if mask and not self.effsel_mask is None:
+            ksel = ksel[self.effsel_mask]
+        return ksel
+    
+    def get_results(self,load_sampler=False):
+        '''get_results:
+        
+        Get results from MCMC and mass calculation. Note that the pickled
+        sampler is quite big so it's optionally loaded.
+        
+        Args:
+            load_sampler (bool) - Load the emcee sampler [default False]
+        
+        Sets:
+            samples - MCMC samples
+            sampler - MCMC sampler object (optional)
+            masses - Calculated masses
+            mass_inds - indices of samples where masses were calculated
+            facs - Mass calculation factors
+            isofactors - Isochrone factors
+            opt_init - First optimization
+            opt_post - Optimization from MCMC maximum likelihood
+        '''
+        samples_filename = self.fit_data_dir+'samples.npy'
+        masses_filename = self.fit_data_dir+'masses.npy'
+        mass_inds_filename = self.fit_data_dir+'mass_inds.npy'
+        facs_filename = self.fit_data_dir+'facs.npy'
+        isofactors_filename = self.fit_data_dir+'isofactors.npy'
+        opt_filename = self.fit_data_dir+'opt.pkl'
+        opt_init_filename = self.fit_data_dir+'opt_init.pkl'
+        opt_post_filename = self.fit_data_dir+'opt_post.pkl'
+        
+        if os.path.exists(samples_filename):
+            self.samples = np.load(samples_filename)
+                
+        if os.path.exists(masses_filename):
+            self.masses = np.load(masses_filename)
+            
+        if os.path.exists(mass_inds_filename):
+            self.mass_inds = np.load(mass_inds_filename)
+            
+        if os.path.exists(facs_filename):
+            self.facs = np.load(facs_filename)
+        
+        if os.path.exists(isofactors_filename):
+            self.isofactors = np.load(isofactors_filename)
+            
+        if os.path.exists(opt_init_filename):
+            with open(opt_init_filename,'rb') as f:
+                self.opt_init = pickle.load(f)
+        elif os.path.exists(opt_filename):
+            with open(opt_filename,'rb') as f:
+                self.opt_init = pickle.load(f)
+            
+        if os.path.exists(opt_post_filename):
+            with open(opt_post_filename,'rb') as f:
+                self.opt_post = pickle.load(f)
+                
+        # Also load the sampler if requested.
+        if load_sampler:
+            self.get_sampler()
+    
+    
+    def get_sampler(self):
+        '''get_sampler:
+        
+        Load the pickled sampler
+        
+        Sets
+            sampler - MCMC sampler object
+        '''
+        sampler_filename = self.fit_data_dir+'sampler.pkl'
+        
+        if os.path.exists(sampler_filename):
+            with open(sampler_filename,'rb') as f:
+                self.sampler = pickle.load(f)
+    
+    
+    def get_ml_params(self,ml_type='mcmc_ml'):
+        '''get_ml_params:
+        
+        Get the maximum likelihood set of parameters for the density profile
+        
+        ml_type can be:
+         'mcmc_ml' - maximum likelihood parameters from the MCMC chain
+         'mcmc_median' - median parameters from the MCMC chain
+         'post' - Optimization done from highest likelihood MCMC sample
+         'init' - Optimization done to start MCMC chain
+        
+        Args:
+            ml_type (string) - String denoting type of ML solution
+        
+        '''
+        # Make sure ml_type correct
+        assert ml_type in ['mcmc_ml','mcmc_median','post','init'],\
+        'ml_type must be one of "mcmc_ml", "mcmc_median", "post", "init"'
+        
+        # Make sure relevant variables are set
+        if ml_type == 'mcmc_ml':
+            assert self.ml_ind is not None and self.samples is not None,\
+                'ml_ind and/or samples is not set, run get_results() & '+\
+                'get_loglike_ml_aic_bic()'
+            return self.samples[self.ml_ind]
+        
+        if ml_type == 'mcmc_median':
+            assert self.samples is not None, 'samples is not set, run '+\
+                'get_results()'
+            return np.median(self.samples,axis=0)
+        
+        if ml_type == 'post':
+            assert self.opt_post is not None, 'opt_post is not set, run '+\
+                'get_results()'
+            if not self.opt_post.success:
+                print('warning post optimization was not successful')
+            return self.opt_post.x
+        
+        if ml_type == 'init':
+            assert self.opt_init is not None, 'opt_init is not set, run '+\
+                'get_results()'
+            if not self.opt_init.success:
+                print('Warning initial optimization was not successful')
+            return self.opt_init.x
+        
+    def get_loglike_ml_aic_bic(self):
+        '''get_loglike_ml_aic_bic:
+        
+        Get log likelihood, maximum likelihood, maximum likelihood inds, AIC, 
+        BIC values.
+                
+        Sets:
+            ml
+            ml_ind
+            aic
+            bic
+            loglike
+        '''
+        ml_aic_bic_filename = self.fit_data_dir+'mll_aic_bic.npy'
+        loglike_filename = self.fit_data_dir+'loglike.npy'
+        
+        if os.path.exists(ml_aic_bic_filename):
+            ml,ml_ind,aic,bic = np.load(ml_aic_bic_filename)
+            ml_ind = int(ml_ind)
+            self.ml = ml
+            self.ml_ind = ml_ind
+            self.aic = aic
+            self.bic = bic
+            print('Set self.ml, self.ml_ind, self.aic, self.bic')
+        else:
+            print('File containing ML, AIC, BIC does not exist')
+        
+        if os.path.exists(loglike_filename):
+            self.loglike = np.load(loglike_filename)
+            print('Set self.loglike')
+        else:
+            print('File containing log likelihoods does not exist')
+    
+    def get_densfunc_mcmc_init_informed(self, init_type='ML', verbose=False):
+        '''get_densfunc_mcmc_init_informed:
+        
+        Get an informed set of parameters to use as init. Normally load the 
+        maximum likelihood set of parameters of the source densprofile. 
+        init_type can be:
+        'ML' - Use the maximum likelihood samples from the source densfunc
+        'uninformed' - Just use default init
+        
+        Args:
+            init_type (string) - Type of init to load. 'ML' for maximum 
+                likelihood sample, 'uninformed' for default init
+            verbose (bool) - Be verbose? [default False]
+            
+        Returns:
+            init (array) - Init parameters to use
+        '''
+        if self.verbose is not None:
+            verbose = self.verbose
+        
+        assert init_type in ['ML','uninformed']
+    
+        densfunc = self.densfunc
+        if densfunc.__name__ == 'triaxial_single_angle_zvecpa':
+            print('Setting init_type to uninformed because densfunc is '
+                  'triaxial_single_angle_zvecpa')
+            init_type = 'uninformed'
+
+        # Unpack
+        feh_min,feh_max = self.feh_range
+        selec_suffix = self.selec
+        
+        # Get the densfunc that will provide the init
+        densfunc_source = pdens.get_densfunc_mcmc_init_source(densfunc)
+        source_fit_data_dir = None
+
+        # Check ML files
+        if init_type=='ML':
+            # Sample & ML filename
+            if 'all' in self.fit_type:
+                selec_str = ''
+            else:
+                selec_str = self.selec+'/'
+            source_fit_data_dir = self.fit_dir+'data/'+self.fit_type+'/'+\
+                           selec_str+str(self.feh_min)+'_feh_'+\
+                           str(self.feh_max)+'/'+densfunc_source.__name__+'/'+\
+                           self.version
+
+            samples_filename = source_fit_data_dir+'samples.npy'
+            ml_filename = source_fit_data_dir+'mll_aic_bic.npy'
+            if (not os.path.exists(samples_filename)) or\
+               (not os.path.exists(ml_filename)):
+                print('Files required for init_type "ML" not present'
+                      ', changing init_type to "uninformed"')
+                init_type = 'uninformed'
+
+        if init_type == 'uninformed':
+            init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
+        if init_type == 'ML':
+            samples = np.load(samples_filename)
+            _,ml_ind,_,_ = np.load(ml_filename)
+            sample_ml = samples[int(ml_ind)]
+            init = pdens.make_densfunc_mcmc_init_from_source_params( densfunc, 
+                params_source=sample_ml, densfunc_source=densfunc_source)
+
+        if verbose:
+            print('init_type: '+str(init_type))
+            if densfunc_source is None:
+                print('densfunc_source: None')
+            else:
+                print('densfunc_source: '+densfunc_source.__name__)
+            if source_fit_data_dir is not None:
+                print('source_fit_data_dir: '+source_fit_data_dir)
+
+        return init
+    
+    # Setters
+    
+    def set_densfunc(self,densfunc,init=None,init_type=None,usr_log_prior=None):
+        '''set_densfunc:
+        
+        Set a new densfunc for the class
+        
+        Args:
+            densfunc (callable) - Density profile
+        
+        Returns:
+            None
+        '''
+        print('Setting densfunc to: '+densfunc.__name__)
+        # Set the densfunc
+        self.densfunc=densfunc
+        
+        # Re-set the directories
+        if 'all' in self.fit_type:
+            selec_str = ''
+        else:
+            selec_str = self.selec+'/'
+        fit_data_dir = self.fit_dir+'data/'+self.fit_type+'/'+selec_str+\
+            str(self.feh_min)+'_feh_'+str(self.feh_max)+'/'+densfunc.__name__+\
+            '/'+self.version
+        fit_fig_dir = self.fit_dir+'fig/'+self.fit_type+'/'+selec_str+\
+            str(self.feh_min)+'_feh_'+str(self.feh_max)+'/'+densfunc.__name__+\
+            '/'+self.version
+        if not os.path.exists(fit_data_dir):
+            os.makedirs(fit_data_dir,exist_ok=True)
+        if not os.path.exists(fit_fig_dir):
+            os.makedirs(fit_fig_dir,exist_ok=True)
+        self.fit_data_dir = fit_data_dir
+        self.fit_fig_dir = fit_fig_dir
+        
+        # Re-set the init
+        if init_type is None:
+            init_type=self.init_type
+        elif init_type in ['ML','uninformed']:
+            self.init_type=init_type
+            
+        if init is None:
+            if init_type is None:
+                if self.verbose:
+                    print('Using default init')
+                init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
+            else:
+                if self.verbose:
+                    print('Using init_type: '+str(init_type))
+                init = self.get_densfunc_mcmc_init_informed(
+                    init_type=init_type, verbose=self.verbose)
+        self.init = init
+        
+        # Re-set the user-supplied log-prior
+        if usr_log_prior is not None:
+            self.usr_log_prior = usr_log_prior
+        else:
+            self.usr_log_prior = _null_prior
+    
+    def set_selec(self,selec):
+        '''set_selec
+        
+        Set a new select for the class
+        '''
+        # Probably just easier to re-initialize the whole class
+        pass
+    
+    # Calculators
+    
+    def calculate_loglike(self,params,usr_log_prior=None):
+        '''calculate_loglike:
+        
+        Compute the log likelihood x prior for a set of parameters
+        '''
+        if usr_log_prior is None:
+            usr_log_prior = self.usr_log_prior
+        return pmass.loglike(params, self.densfunc, self.get_fit_effsel(), 
+                             self.Rgrid, self.phigrid, self.zgrid, 
+                             self.Rdata, self.phidata, self.zdata, 
+                             usr_log_prior)
+    
+    def calculate_isofactors(self,fast=True):
+        '''calculate_isofactors:
+        
+        Calculate the factor omega from Mackereth+ 2019 equation 10
+        '''
+        if self.iso is None:
+            assert self.iso_filename is not None, 'if iso not loaded, must'+\
+                'have isochrone filename available'
+            iso = self.get_iso()
+        else:
+            iso = self.iso         
+            
+        nfield = self.get_fit_effsel().shape[0]
+        isofactors = np.zeros(nfield)
+        
+        # Assumes that the only variable is the changing minimum (J-K)
+        if fast:
+            unique_jkmin = np.unique(self.jkmins)
+            if self.verbose:
+                print('Doing fast isochrone factor calculation')
+                print('Unique (J-K) minimum values: '+str(unique_jkmin))
+            for i in range(len(unique_jkmin)):
+                # The mass ratio mask is for all stars considered 
+                massratio_isomask = (Z2FEH(iso['Zini']) > self.feh_min) &\
+                                    (Z2FEH(iso['Zini']) < self.feh_max) &\
+                                    (iso['logAge'] >= 10) &\
+                                    (iso['logL'] > -9) # Eliminates WDs
+                # The average mass mask extracts fitted sample based on color and logg
+                avmass_isomask = massratio_isomask &\
+                                 (iso['Jmag']-iso['Ksmag'] > unique_jkmin[i]) &\
+                                 (iso['logg'] > self.logg_min) &\
+                                 (iso['logg'] < self.logg_max)
+                massratio = piso.mass_ratio(iso[massratio_isomask], 
+                                            logg_range=self.logg_range,
+                                            jk_range=[unique_jkmin[i],999.])
+                avmass = piso.average_mass(iso[avmass_isomask])
+                jkmin_mask = self.jkmins == unique_jkmin[i]
+                isofactors[jkmin_mask] = avmass/massratio
+            
+        else:
+            for i in range(nfield):
+                # The mass ratio mask is for all stars considered 
+                massratio_isomask = (Z2FEH(iso['Zini']) > self.feh_min) &\
+                                    (Z2FEH(iso['Zini']) < self.feh_max) &\
+                                    (iso['logAge'] >= 10) &\
+                                    (iso['logL'] > -9) # Eliminates WDs
+                # The average mass mask extracts fitted sample based on color and logg
+                avmass_isomask = massratio_isomask &\
+                                 (iso['Jmag']-iso['Ksmag'] > self.jkmins[i]) &\
+                                 (iso['logg'] > self.logg_min) &\
+                                 (iso['logg'] < self.logg_max)
+                massratio = piso.mass_ratio(iso[massratio_isomask], 
+                                            logg_range=self.logg_range,
+                                            jk_range=[self.jkmins[i],999.])
+                avmass = piso.average_mass(iso[avmass_isomask])
+                isofactors[i] = avmass/massratio
+                if self.verbose:
+                    print('Calculating isofactor '+str(i+1)+'/'+str(nfield),
+                          end='\r')
+            if self.verbose:
+                print('Calculating isofactor '+str(nfield)+'/'+str(nfield))
+        
+        print('Unique isochrone factors: '+str(np.unique(isofactors)))
+            
+        return isofactors
+    
+    def run_optimization(self,init,method='Powell',optimizer_kwargs={}):
+        '''run_optimization:
+        '''
+        print('Doing maximum likelihood')
+        effsel = self.get_fit_effsel()
+        opt_fn = lambda x: pmass.mloglike(x, self.densfunc, effsel, self.Rgrid, 
+            self.phigrid, self.zgrid, self.Rdata, self.phidata, self.zdata,
+            usr_log_prior=self.usr_log_prior)
+        opt = scipy.optimize.minimize(opt_fn, init, method=method, 
+                                      **optimizer_kwargs)
+        if opt.success:
+            print('MLE successful')
+        else:
+            print('MLE unsucessful')
+            print('message: '+opt.message)
+        return opt
+    
+    def calculate_ml_aic_bic(self,ml_type='post', n_param=None, n_star=None):
+        '''calculate_ml_aic_bic:
+        
+        Calculate maximum likelihood, AIC, BIC.
+        
+        Get the maximum likelihood either from the maximum of the likelihoods 
+        in the MCMC sampler chain ('mcmc_ml'), from the initial optimization
+        ('init') or from the final optimization (after the MCMC is run) ('post')
+        
+        Args:
+            ml_type (str) - Maximum likelihood type [default 'post']
+        
+        Returns:
+            mll (float) - Maximum log likelihood
+            aic (float) - Akaike information criterion
+            bic (float) - Bayesian information criterion
+        '''
+        # Make sure ml_type correct
+        assert ml_type in ['mcmc_ml','post','init'],\
+        'ml_type must be one of "mcmc_ml", "post", "init"'
+        
+        # Make sure get_results() has been run
+        assert self.loglike is not None and\
+               self.opt_post is not None and\
+               self.opt_init is not None, 'run self.get_results()'
+        
+        # Determine n_param and n_star
+        if n_param is None:
+            n_param = self.samples.shape[1]
+        if n_star is None:
+            n_star = self.n_star
+        
+        # Make sure relevant variables are set
+        if ml_type == 'mcmc_ml':
+            mll = -np.abs(np.max(self.loglike))
+        elif ml_type == 'post':
+            if not self.opt_post.success:
+                print('warning post optimization was not successful')
+            mll = -np.abs(self.opt_post.fun)
+        elif ml_type == 'init':
+            if not self.opt_init.success:
+                print('Warning initial optimization was not successful')
+            mll = -np.abs(self.opt_init.fun)
+        
+        aic = 2*n_param - 2*mll
+        bic = np.log(n_star)*n_param - 2*mll
+        
+        return mll,aic,bic
+    
+
+class _HaloFit:
+    '''_HaloFit:
+    
+    
+    Parent class for HaloFit-type classes
+    '''
+    def __init__(self,
+                 densfunc=None,
+                 selec=None,
+                 nwalkers=None,
+                 nit=None,
+                 ncut=None,
+                 usr_log_prior=None,
+                 n_mass=None,
+                 int_r_range=None,
+                 iso=None,
+                 iso_filename=None,
+                 jkmins=None,
+                 feh_range=None,
+                 logg_range=None,
+                 fit_dir=None,
+                 gap_dir=None,
+                 ksf_dir=None,
+                 version=None,
+                 effsel=None,
+                 effsel_mask=None,
+                 effsel_grid=None,
+                 ):
+        '''__init__:
+        
+        Initialize the _HaloFit parent class
+        '''
+        # Density profile
+        self.densfunc = densfunc
+        
+        # Kinematic selection space
+        if selec is not None:
+            if isinstance(selec,str): selec=[selec,]
+            selec_suffix = '-'.join(selec)
+        else:
+            selec_suffix = None
+        self.selec = selec_suffix
+        self.selec_arr = selec
+        
+        # MCMC info
+        self.nwalkers = nwalkers
+        self.nit = nit
+        self.ncut = ncut
+        
+        # Log prior
+        if usr_log_prior is not None:
+            self.usr_log_prior = usr_log_prior
+        else:
+            self.usr_log_prior = _null_prior
+        
+        # Mass calculation info
+        if n_mass is None:
+            n_mass = int(nwalkers*(nit-ncut))
+        self.n_mass = n_mass
+        self.int_r_range = int_r_range
+        
+        # Isochrone
+        self.iso = iso
+        self.iso_filename = iso_filename
+        
+        # J-K minimums
+        self.jkmins = jkmins
+        
+        # [Fe/H], logg range
+        feh_min, feh_max = feh_range
+        logg_min, logg_max = logg_range
+        self.feh_range = feh_range
+        self.logg_range = logg_range
+        self.feh_min = feh_min
+        self.feh_max = feh_max
+        self.logg_min = logg_min
+        self.logg_max = logg_max
+        
+        # I/O directories
+        if fit_dir[-1] != '/': fit_dir+='/'
+        self.fit_dir = fit_dir
+        self.gap_dir = gap_dir
+        self.ksf_dir = ksf_dir
+        
+        # Version
+        if version != '':
+            if version[-1] != '/': version+='/'
+        else:
+            version = ''
+        self.version = version
+        
+        # Prepare the effective selection function
+        self.effsel = effsel
+        self.effsel_mask = effsel_mask
+        Rgrid,phigrid,zgrid = effsel_grid
+        self.Rgrid = Rgrid
+        self.phigrid = phigrid
+        self.zgrid = zgrid
+        self.dmods = dmods
+        
+        # Initialize variables that will be set once analysis is complete
+        self.opt_init = None
+        self.opt_post = None
+        self.samples = None
+        self.sampler = None
+        self.masses = None
+        self.mass_inds = None
+        self.facs = None
+        self.isofactors = None
+        self.ml = None
+        self.ml_ind = None
+        self.aic = None
+        self.bic = None
+        self.loglike = None
+
+
+class MockHaloFit(_HaloFit):
+    '''MockHaloFit:
+    '''
+    def __init__(self,):
+        '''__init__:
+        
+        Initialize a MockHaloFit class
+        
+        Args:
+            
+        Returns:
+            None
+        '''
+        # Call parents constructor
+        _HaloFit.__init__()
+        
+        # Do data
+        
+        # Do directories
+
+
+# Null prior for class
+def _null_prior(densfunc,params):
+    return 0
+        
+        
+        
