@@ -64,8 +64,8 @@ def normalize_parameters(params,model):
                                norm_eta(params[:,4]), 
                                params[:,5]/phi_scale
                               ]).T
-    if 'triaxial_single_cutoff_zvecpa' in model.__name__:
-        # params are [alpha,beta,p,q,theta,eta,pa]
+    if 'triaxial_single_cutoff_zvecpa' in model.__name__: # Also inverse
+        # params are [alpha,r1 or beta1,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
         params_out = np.array([params[:,0],
                                params[:,1],
@@ -75,8 +75,8 @@ def normalize_parameters(params,model):
                                norm_eta(params[:,5]), 
                                params[:,6]/phi_scale
                               ]).T
-    if 'triaxial_broken_angle_zvecpa' in model.__name__:
-        # params are [alpha_in,alpha_out,r1,p,q,theta,eta,pa]
+    if 'triaxial_broken_angle_zvecpa' in model.__name__: # Also inverse
+        # params are [alpha_in,alpha_out,r1 or beta1,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
         params_out = np.array([params[:,0],
                                params[:,1],
@@ -156,8 +156,8 @@ def denormalize_parameters(params,model):
                                denorm_eta(params[:,4]),
                                params[:,5]*phi_scale
                               ]).T
-    if 'triaxial_single_cutoff_zvecpa' in model.__name__:
-        # params are [alpha,beta,p,q,theta,eta,pa]
+    if 'triaxial_single_cutoff_zvecpa' in model.__name__: # Also inverse
+        # params are [alpha,r1 or beta1,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
         params_out = np.array([params[:,0],
                                params[:,1],
@@ -167,8 +167,8 @@ def denormalize_parameters(params,model):
                                denorm_eta(params[:,5]),
                                params[:,6]*phi_scale
                               ]).T
-    if 'triaxial_broken_angle_zvecpa' in model.__name__:
-        # params are [alpha_in,alpha_out,beta,p,q,theta,eta,pa]
+    if 'triaxial_broken_angle_zvecpa' in model.__name__: # Also inverse
+        # params are [alpha_in,alpha_out,r1 or beta1,p,q,theta,eta,pa]
         # theta is [0,2pi], eta is [-1,1], pa is [0,pi]
         params_out = np.array([params[:,0],
                                params[:,1],
