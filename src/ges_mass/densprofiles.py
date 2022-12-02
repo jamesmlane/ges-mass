@@ -213,43 +213,6 @@ def denormalize_parameters(params,model):
     
     return params_out
 
-# Utilities for transformations
-
-# def transform_aby(xyz,alpha,beta,gamma):
-#     '''transform_aby:
-
-#     Transform xyz coordinates by rotation around x-axis (alpha), transformed 
-#     y-axis (beta) and twice transformed z-axis (gamma)
-    
-#     Args:
-#         xyz (np.array) - Galactocentric coordinate array
-#         alpha (float) - X-axis rotation angle
-#         beta (float) - Transformed Y-axis rotation angle
-#         gamma (float) - Twice-transformed Z-axis rotation angle
-    
-#     Returns:
-#         x,y,z (np.arrays) - Galactocentric rectangular coordinates
-#     '''
-#     Rx = np.zeros([3,3])
-#     Ry = np.zeros([3,3])
-#     Rz = np.zeros([3,3])
-#     Rx[0,0] = 1
-#     Rx[1] = [0, np.cos(alpha), -np.sin(alpha)]
-#     Rx[2] = [0, np.sin(alpha), np.cos(alpha)]
-#     Ry[0] = [np.cos(beta), 0, np.sin(beta)]
-#     Ry[1,1] = 1
-#     Ry[2] = [-np.sin(beta), 0, np.cos(beta)]
-#     Rz[0] = [np.cos(gamma), -np.sin(gamma), 0]
-#     Rz[1] = [np.sin(gamma), np.cos(gamma), 0]
-#     Rz[2,2] = 1
-#     R = np.matmul(Rx,np.matmul(Ry,Rz))
-#     if np.ndim(xyz) == 1:
-#         tgalcenrect = np.dot(R, xyz)
-#         x, y, z = tgalcenrect[0], tgalcenrect[1], tgalcenrect[2]
-#     else:
-#         tgalcenrect = np.einsum('ij,aj->ai', R, xyz)
-#         x, y, z = tgalcenrect[:,0], tgalcenrect[:,1], tgalcenrect[:,2]
-#     return x, y, z
 
 def transform_zvecpa(xyz,zvec,pa):
     '''transform_zvecpa:
