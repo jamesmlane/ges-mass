@@ -535,16 +535,19 @@ def find_orbit_nearest_neighbor(orbs1,orbs2,ro=8,vo=220):
     
     # If orbs1 has only 1 element make this into an array
     if len(orbs1_copy) == 1:
-        sc1 = coordinates.SkyCoord(l=np.array([orbs1_copy.ll().value])*apu.deg, 
-                                   b=np.array([orbs1_copy.bb().value])*apu.deg, 
-                                   distance=np.array([orbs1_copy.dist().value])*apu.kpc, 
+        sc1 = coordinates.SkyCoord(l=orbs1_copy.ll().to(apu.deg), 
+                                   b=orbs1_copy.bb().to(apu.deg), 
+                                   distance=orbs1_copy.dist().to(apu.kpc), 
                                    frame='galactic')
     else:
-        sc1 = coordinates.SkyCoord(l=orbs1_copy.ll(), b=orbs1_copy.bb(), distance=orbs1_copy.dist(), 
+        sc1 = coordinates.SkyCoord(l=orbs1_copy.ll().to(apu.deg), 
+                                   b=orbs1_copy.bb().to(apu.kpc), 
+                                   distance=orbs1_copy.dist().to(apu.kpc), 
                                    frame='galactic')
-    ##ie
     
-    sc2 = coordinates.SkyCoord(l=orbs2_copy.ll(), b=orbs2_copy.bb(), distance=orbs2_copy.dist(), 
+    sc2 = coordinates.SkyCoord(l=orbs2_copy.ll().to(apu.deg), 
+                               b=orbs2_copy.bb().to(apu.deg), 
+                               distance=orbs2_copy.dist().to(apu.kpc), 
                                frame='galactic')
     
     match_indx, sep2d, dist3d = sc1.match_to_catalog_3d(sc2,nthneighbor=1)
@@ -599,12 +602,14 @@ def perturb_orbit_with_Gaia_APOGEE_uncertainties(orbs,gaia,allstar,
     n_samples = len(orbs)
     n_errors = len(gaia)
     
-    ra_sample,dec_sample,pmra_sample,pmdec_sample,dist_sample,rv_sample = np.zeros((6,n_samples))
+    ra_sample,dec_sample,pmra_sample,pmdec_sample,dist_sample,rv_sample = \
+        np.zeros((6,n_samples))
     
     # Positions / velocities from the DF-sampled orbit
-    ra,dec = orbs.ra().value, orbs.dec().value, 
-    pmra,pmdec = orbs.pmra().value, orbs.pmdec().value
-    dist,rv = orbs.dist().value, orbs.vlos().value 
+    ra,dec = orbs.ra().to(apu.deg).value, orbs.dec().to(apu.deg).value, 
+    pmra = orbs.pmra().to(apu.mas/apu.yr).value
+    pmdec = orbs.pmdec().to(apu.mas/apu.yr).value
+    dist,rv = orbs.dist().to(apu.kpc).value, orbs.vlos().to(apu.km/apu.s).value 
     
     # Uncertainties. Note 'weighted_dist_error' is in pc (want kpc)
     ra_e,dec_e = gaia['ra_error'], gaia['dec_error']
@@ -657,10 +662,7 @@ def perturb_orbit_with_Gaia_APOGEE_uncertainties(orbs,gaia,allstar,
         try:
             vxvv_resample[i] = np.random.multivariate_normal(mean[i], cov[i], 1)
         except ValueError:
-            print(mean[o_mask][i])
-            print(cov[o_mask][i]) 
-        ##te
-    ###i  
+            print('Sampling failed on star i='+str(i))
     
     orbs_sample = orbit.Orbit(vxvv=vxvv_resample, radec=True, ro=ro, vo=vo, zo=zo)
     return orbs_sample
@@ -886,7 +888,7 @@ def swap_in_edr3_distances_to_dr16(allstar_dr16,allstar_dr17=None,
         return allstar_dr16_new
     
 
-def calculate_accs_eELzs_orbextr_Staeckel(orbs,pot,aAS,):
+def calculate_accs_eELzs_orbextr_Staeckel(orbs,pot,aAS):
     '''calculate_accs_eELzs_orbextr:
     
     Calculate actions, eccentricity, obital extrema for an orbit object using 
@@ -900,7 +902,7 @@ def calculate_accs_eELzs_orbextr_Staeckel(orbs,pot,aAS,):
             to pot
     
     Returns:
-        deltas (array) - Staeckel deltas
+        delta (array) - Staeckel delta
         eELz (3xN array) - eccentricity, Energy, Lz
         accs (3xN array) - Actions: jR, Lz, jz
         orbextr (3xN array) - Orbital extrema: zmax, pericenter, apocenter
@@ -915,31 +917,31 @@ def calculate_accs_eELzs_orbextr_Staeckel(orbs,pot,aAS,):
     assert ro==orbs._ro and vo==orbs._vo, 'ro,vo from pot do not match orbs'
     
     # Deltas
-    deltas = aA.estimateDeltaStaeckel(pot,orbs.R(),orbs.z(),no_median=True)
-    if isinstance(deltas,apu.quantity.Quantity): deltas=deltas.value/ro
+    delta = aA.estimateDeltaStaeckel(pot,orbs.R(),orbs.z(),no_median=True)
+    if isinstance(delta,apu.quantity.Quantity): 
+        delta=delta.to(apu.kpc).value/ro
     
     # Orbital extrema
-    ecc,zmax,rperi,rapo = aAS.EccZmaxRperiRap(orbs,deltas=deltas,
+    ecc,zmax,rperi,rapo = aAS.EccZmaxRperiRap(orbs,delta=delta,
                                               use_physical=True,c=True)
     
     # Actions
-    accs_freqs = aAS.actionsFreqs(orbs, delta=deltas, use_physical=True, c=True)
+    accs_freqs = aAS.actionsFreqs(orbs, delta=delta, use_physical=True, c=True)
     
-    
-    E = orbs.E(pot=pot).value
-    ecc = ecc.value
-    zmax = zmax.value
-    rperi = rperi.value
-    rapo = rapo.value
-    jr = accs_freqs[0].value
-    Lz = accs_freqs[1].value
-    jz = accs_freqs[2].value
+    E = orbs.E(pot=pot).to(apu.km*apu.km/apu.s/apu.s).value
+    ecc = ecc.value # Unitless
+    zmax = zmax.to(apu.kpc).value
+    rperi = rperi.to(apu.kpc).value
+    rapo = rapo.to(apu.kpc).value
+    jr = accs_freqs[0].to(apu.kpc*apu.km/apu.s).value
+    Lz = accs_freqs[1].to(apu.kpc*apu.km/apu.s).value
+    jz = accs_freqs[2].to(apu.kpc*apu.km/apu.s).value
     
     eELzs = np.array([ecc,E,Lz])
     accs = np.array([jr,Lz,jz])
     orbextr = np.array([zmax,rperi,rapo])
         
-    return deltas,eELzs,accs,orbextr
+    return delta,eELzs,accs,orbextr
 
 def orbit_kinematics_from_df_samples(orbs,dfs,mixture_arr=None,ro=None,vo=None):
     '''orbit_kinematics_from_df_samples:
