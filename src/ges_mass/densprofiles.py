@@ -244,6 +244,7 @@ def transform_zvecpa(xyz,zvec,pa):
         x, y, z = tgalcenrect[:,0], tgalcenrect[:,1], tgalcenrect[:,2]
     return x, y, z
 
+
 def eta_theta_to_zvec(eta,theta):
     '''eta_theta_to_zvec:
     
@@ -278,6 +279,7 @@ def eta_theta_to_zvec(eta,theta):
     zvec[2] = eta
     zvec /= np.sum(zvec**2.,axis=0)**0.5
     return zvec
+
 
 def zvec_to_eta_theta(zvec):
     '''zvec_to_eta_theta:
@@ -318,7 +320,9 @@ def zvec_to_eta_theta(zvec):
             theta = 0.
     return eta,theta
 
+
 # Utilities to get some information from density functions
+
 
 def get_densfunc_params_indx(densfunc,param):
     '''get_densfunc_param_indx:
@@ -332,26 +336,36 @@ def get_densfunc_params_indx(densfunc,param):
     Returns:
         indx (array) - List of indices representing locations of parameters
     '''
+    dname = densfunc.__name__
+    
     # Wrap up param if int
     if isinstance(param,int):
         param = [param,]
     
     # Lists of parameters
-    if 'triaxial_single_angle_zvecpa' in densfunc.__name__:
+    if 'triaxial_single_angle_zvecpa' in dname:
         param_names = np.array(['alpha','p','q','theta','eta','phi'])
     
-    elif 'triaxial_single_cutoff_zvecpa' in densfunc.__name__:
-        param_names = np.array(['alpha','beta','p','q','theta','eta','phi'])
+    elif 'triaxial_single_cutoff_zvecpa' in dname:
+        if 'inv' in dname:
+            param_names = np.array(['alpha','beta1','p','q','theta','eta',
+                                    'phi'])
+        else:
+            param_names = np.array(['alpha','r1','p','q','theta','eta','phi'])
     
-    elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
-        param_names = np.array(['alpha_in','alpha_out','r1','p','q','theta',
-                                'eta','phi'])
+    elif 'triaxial_broken_angle_zvecpa' in dname:
+        if 'inv' in dname:
+            param_names = np.array(['alpha_in','alpha_out','beta1','p','q',
+                                    'theta','eta','phi'])
+        else:
+            param_names = np.array(['alpha_in','alpha_out','r1','p','q','theta',
+                                    'eta','phi'])
         
-    elif 'triaxial_double_broken_angle_zvecpa' in densfunc.__name__:
+    elif 'triaxial_double_broken_angle_zvecpa' in dname:
         param_names = np.array(['alpha_in','alpha_mid','alpha_out','r1',
                                 'r2','p','q','theta','eta','phi'])
         
-    if 'plusexpdisk' in densfunc.__name__:
+    if 'plusexpdisk' in dname:
         param_names = np.concatenate((param_names,['fdisk']))
     
     indx = []
@@ -400,6 +414,7 @@ def get_densfunc_nodisk(densfunc):
         warnings.warn('exp_disk has no component without a disk')
         return None
 
+    
 def get_densfunc_mcmc_labels(densfunc, physical_units=False):
     '''get_densfunc_mcmc_labels:
     
@@ -410,24 +425,33 @@ def get_densfunc_mcmc_labels(densfunc, physical_units=False):
     Returns:
         labels (arr) - String array
     '''
-    if  'triaxial_single_angle_zvecpa' in densfunc.__name__:
+    dname = densfunc.__name__
+    if  'triaxial_single_angle_zvecpa' in dname:
         labels = [r'$\alpha$', r'$p$', r'$q$', r'$\theta$', r'$\eta$', 
                   r'$\phi$']
-    elif 'triaxial_single_cutoff_zvecpa' in densfunc.__name__:
-        labels = [r'$\alpha$', r'$\beta$', r'$p$', r'$q$', r'$\theta$', 
-                  r'$\eta$', r'$\phi$']
-    elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
-        labels = [r'$\alpha_{1}$', r'$\alpha_{2}$', r'$r_{1}$', r'$p$', 
-                  r'$q$', r'$\theta$', r'$\eta$', r'$\phi$']
-    elif 'triaxial_double_broken_angle_zvecpa' in densfunc.__name__:
+    elif 'triaxial_single_cutoff_zvecpa' in dname:
+        if 'inv' in dname:
+            labels = [r'$\alpha$', r'$\beta$', r'$p$', r'$q$', r'$\theta$', 
+                      r'$\eta$', r'$\phi$']
+        else:
+            labels = [r'$\alpha$', r'$r_{1}$', r'$p$', r'$q$', r'$\theta$', 
+                      r'$\eta$', r'$\phi$']
+    elif 'triaxial_broken_angle_zvecpa' in dname:
+        if 'inv' in dname:
+            labels = [r'$\alpha_{1}$', r'$\alpha_{2}$', r'$r_{1}$', r'$p$', 
+                      r'$q$', r'$\theta$', r'$\eta$', r'$\phi$']
+        else:
+            labels = [r'$\alpha_{1}$', r'$\alpha_{2}$', r'$r_{1}$', r'$p$', 
+                      r'$q$', r'$\theta$', r'$\eta$', r'$\phi$']
+    elif 'triaxial_double_broken_angle_zvecpa' in dname:
         labels = [r'$\alpha_{1}$', r'$\alpha_{2}$', r'$\alpha_{3}$', 
                   r'$r_{1}$', r'$r_{2}$', r'$p$', r'$q$', r'$\theta$', 
                   r'$\eta$', r'$\phi$']
-    elif 'triaxial_single_trunc_zvecpa' in densfunc.__name__:
+    elif 'triaxial_single_trunc_zvecpa' in dname:
         labels = [r'$\alpha$', r'$r_{1}$', r'$p$', r'$q$', r'$\theta$', 
                   r'$\eta$', r'$\phi$']
                     
-    if densfunc.__name__[-11:] == 'plusexpdisk':
+    if dname[-11:] == 'plusexpdisk':
         labels.append(r'$f_{disk}$')
     
     if physical_units:
@@ -442,11 +466,12 @@ def get_densfunc_mcmc_labels(densfunc, physical_units=False):
                 labels[i] = labels[i]+' [rad]'
     
     return labels
-    
+
+
 def get_densfunc_mcmc_init_uninformed(densfunc):
     '''get_densfunc_mcmc_init_uninformed:
     
-    Get the initialization for MCMC
+    Get the initialization for MCMC naively.
     
     Args:
         densfunc (callable) - density function
@@ -454,24 +479,29 @@ def get_densfunc_mcmc_init_uninformed(densfunc):
     Returns:
         init (array) - Initial parameters
     '''
-    if  'triaxial_single_angle_zvecpa' in densfunc.__name__:
+    dname = densfunc.__name__
+    if  'triaxial_single_angle_zvecpa' in dname:
         init = np.array([2.0, 0.5, 0.5, 0.01, 0.99, 0.01])
-    elif 'triaxial_single_cutoff_zvecpa' in densfunc.__name__:
-        init = np.array([2.0, 1/20., 0.5, 0.5, 0.01, 0.99, 0.01])
-    elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
-        if 'inv' in densfunc.__name__:
-            init = np.array([2., 4., 0.05, 0.5, 0.5, 0.01, 0.99, 0.01])
+    elif 'triaxial_single_cutoff_zvecpa' in dname:
+        if 'inv' in dname:
+            init = np.array([2.0, 1./20., 0.5, 0.5, 0.01, 0.99, 0.01])
+        else:
+            init = np.array([2.0, 20., 0.5, 0.5, 0.01, 0.99, 0.01])
+    elif 'triaxial_broken_angle_zvecpa' in dname:
+        if 'inv' in dname:
+            init = np.array([2., 4., 1./20., 0.5, 0.5, 0.01, 0.99, 0.01])
         else:
             init = np.array([2., 4., 20., 0.5, 0.5, 0.01, 0.99, 0.01])
-    elif 'triaxial_double_broken_angle_zvecpa' in densfunc.__name__:
+    elif 'triaxial_double_broken_angle_zvecpa' in dname:
         init = np.array([2., 3., 4., 20., 40., 0.5, 0.5, 0.01, 0.99, 0.01])
-    elif 'triaxial_single_trunc_zvecpa' in densfunc.__name__:
+    elif 'triaxial_single_trunc_zvecpa' in dname:
         init = np.array([2.0, 50., 0.5, 0.5, 0.01, 0.99, 0.01])
     
-    if 'plusexpdisk' in densfunc.__name__:
+    if 'plusexpdisk' in dname:
         init = np.concatenate((init,[0.01,]))
     
     return init
+
 
 def get_densfunc_mcmc_init_source(densfunc):
     '''get_densfunc_mcmc_init_source:
@@ -492,10 +522,14 @@ def get_densfunc_mcmc_init_source(densfunc):
             
             'triaxial_single_cutoff_zvecpa':\
                 triaxial_single_angle_zvecpa,
+            'triaxial_single_cutoff_zvecpa_inv':\
+                triaxial_single_angle_zvecpa,
             'triaxial_single_cutoff_zvecpa_plusexpdisk':\
                 triaxial_single_cutoff_zvecpa,
             
             'triaxial_broken_angle_zvecpa':\
+                triaxial_single_angle_zvecpa,
+            'triaxial_broken_angle_zvecpa_inv':\
                 triaxial_single_angle_zvecpa,
             'triaxial_broken_angle_zvecpa_plusexpdisk':\
                 triaxial_broken_angle_zvecpa,
