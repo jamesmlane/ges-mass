@@ -617,7 +617,50 @@ def spherical_integration_grid(r_min,r_max,n_edge_r,n_edge_theta,n_edge_phi):
     Rphizgrid = np.dstack([Rphizgrid[0],Rphizgrid[1],Rphizgrid[2]])[0]
     return Rphizgrid,delta
 
+
+def fdisk_to_number_of_stars(hf,samples,nprocs=1):
+    '''fdisk_to_number_of_stars:
+    
+    Convert fdisk to number of halo and disk stars in the sample
+    
+    Args:
+        hf (HaloFit) - HaloFit class containing all information about fit
+        samples (array) - MCMC samples, shape is (nsample,ndim)
+        nprocs (int) - Number of processors to use [default 1]
+    
+    Returns:
+        n_halo (int) - Number of halo stars
+        n_disk (int) - Number of disk stars
+    '''
+    samples = np.atleast_2d(samples)
+    n_samples = samples.shape[0]
+    n_star_halo = np.zeros(n_samples,dtype=int)
+    n_star_disk = np.zeros(n_samples,dtype=int)
+    
+    assert 'plusexpdisk' in hf.densfunc.__name__
+    
+    # Unpack min and max for [Fe/H], logg, effective selection function grid,
+    # (kinematic) effective selection function
+    feh_min, feh_max = hf.feh_range
+    logg_min, logg_max = hf.logg_range
+    Rgrid,phigrid,zgrid = hf.get_effsel_grid()
+    effsel = hf.get_fit_effsel()
+    
+    # Calculate the effective volume for both profiles
+    for i in tqdm(range(n_samples)):
+        dens_halo,dens_disk = hf.densfunc(Rgrid, phigrid, zgrid, 
+                                          params=samples[i], split=True)
+        vol_halo = np.sum(dens_halo*effsel)
+        vol_disk = np.sum(dens_disk*effsel)
+        vol_tot = vol_halo+vol_disk
+        n_star_halo[i] = n_star*vol_halo/vol_tot
+        n_star_disk[i] = n_star*vol_disk/vol_tot
+    
+    return n_star_halo,n_star_disk
+
+
 ### Gridding
+
 
 def Rphizgrid(apo,distmods,ro=_ro,zo=_zo):
     '''Rphizgrid:
@@ -652,6 +695,7 @@ def Rphizgrid(apo,distmods,ro=_ro,zo=_zo):
         zgrid[i] = rphiz[:,2]
     return Rgrid, phigrid, zgrid
 
+
 def xyzgrid(apo,distmods,):
     '''xyzgrid:
     
@@ -681,7 +725,9 @@ def xyzgrid(apo,distmods,):
         zgrid[i] = xyz[:,2]
     return xgrid, ygrid, zgrid
 
+
 ### Model Likelihoods
+
 
 def mloglike(*args, **kwargs):
     '''mloglike:
@@ -694,6 +740,7 @@ def mloglike(*args, **kwargs):
         mloglike (array) - Negative of the loglikelihood function
     '''
     return -loglike(*args,**kwargs)
+
 
 def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, dataR, dataphi, 
             dataz, usr_log_prior=None):
@@ -741,6 +788,7 @@ def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, dataR, dataphi,
         return -np.inf
     return logprior + usrlogprior + loglike
 
+
 def effvol(densfunc, effsel, Rgrid, phigrid, zgrid, params=None):
     '''effvol:
     
@@ -763,6 +811,7 @@ def effvol(densfunc, effsel, Rgrid, phigrid, zgrid, params=None):
     else:
         effdens = tdens(densfunc,Rgrid,phigrid,zgrid,params=params)
     return np.sum(effdens*effsel)
+
 
 def tdens(densfunc, Rgrid, phigrid, zgrid, params=None):
     '''tdens:
@@ -787,7 +836,9 @@ def tdens(densfunc, Rgrid, phigrid, zgrid, params=None):
         dens = densfunc(Rgrid,phigrid,zgrid,params=params)
     return dens
 
+
 ### Prior
+
 
 def log_prior(densfunc, params):
     '''log_prior:
@@ -815,6 +866,7 @@ def log_prior(densfunc, params):
     # if densfunc is pdens.triaxial_einasto_zvecpa:
     #     prior = norm.pdf(params[0], loc=20, scale=10)
     #     return np.log(prior)
+
 
 def domain_prior(densfunc, params):
     '''domain_prior:
