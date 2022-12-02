@@ -214,13 +214,14 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
             return samples, sampler
         else:
             return samples
-    
+
+
 def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid, 
                               iso, feh_range, logg_range, jkmins, n_mass=400,
                               mass_int_type='spherical_grid', 
                               mass_analytic=False, int_r_range=[2.,70.], 
                               n_edge=[500,100,100], nprocs=None, batch=False, 
-                              ro=_ro, zo=_zo, seed=0):
+                              ro=_ro, zo=_zo, seed=0, verbose=True):
     '''mass_from_density_samples:
     
     Calculate the mass corresponding to a series of samples representing the 
@@ -264,8 +265,7 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
     nfield = effsel.shape[0]
     facs = np.zeros(n_mass)
     isofactors = np.zeros(nfield)
-    if densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk or\
-       densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
+    if 'plusexpdisk' in densfunc.__name__:
         hasDisk = True
         masses = np.zeros((n_mass,3))
     else:
@@ -276,28 +276,58 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
     Rgrid,phigrid,zgrid = effsel_grid
     
     # Determine the isochrone mass fraction factors for each field
-    print('Calculating isochrone factors')
-    for i in range(nfield):
-        # The mass ratio mask is for all stars considered 
-        massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
-                            (Z2FEH(iso['Zini']) < feh_range[1]) &\
-                            (iso['logAge'] >= 10) &\
-                            (iso['logL'] > -9) # Eliminates WDs
-        # The average mass mask extracts fitted sample based on color and logg
-        avmass_isomask = massratio_isomask &\
-                         (iso['Jmag']-iso['Ksmag'] > jkmins[i]) &\
-                         (iso['logg'] > logg_range[0]) &\
-                         (iso['logg'] < logg_range[1])
-        massratio = piso.mass_ratio(iso[massratio_isomask], 
-                                    logg_range=logg_range,
-                                    jk_range=[jkmins[i],999.])
-        avmass = piso.average_mass(iso[avmass_isomask])
-        isofactors[i] = avmass/massratio
-    print(np.unique(isofactors))
+    if verbose:
+        print('Calculating isochrone factors')
+    
+    _fast_isofactors = True
+    if _fast_isofactors:
+        unique_jkmin = np.unique(jkmins)
+        if verbose:
+            print('Doing fast isochrone factor calculation')
+            print('Unique (J-K) minimum values: '+str(unique_jkmin))
+        for i in range(len(unique_jkmin)):
+            # The mass ratio mask is for all stars considered 
+            massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
+                                (Z2FEH(iso['Zini']) < feh_range[1]) &\
+                                (iso['logAge'] >= 10) &\
+                                (iso['logL'] > -9) # Eliminates WDs
+            # The average mass mask extracts fitted sample based on color and logg
+            avmass_isomask = massratio_isomask &\
+                             (iso['Jmag']-iso['Ksmag'] > unique_jkmin[i]) &\
+                             (iso['logg'] > logg_range[0]) &\
+                             (iso['logg'] < logg_range[1])
+            massratio = piso.mass_ratio(iso[massratio_isomask], 
+                                        logg_range=logg_range,
+                                        jk_range=[unique_jkmin[i],999.])
+            avmass = piso.average_mass(iso[avmass_isomask])
+            jkmin_mask = jkmins == unique_jkmin[i]
+            isofactors[jkmin_mask] = avmass/massratio
+    else:
+        print('Doing slow isochrone factor calculation')
+        for i in range(nfield):
+            # The mass ratio mask is for all stars considered 
+            massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
+                                (Z2FEH(iso['Zini']) < feh_range[1]) &\
+                                (iso['logAge'] >= 10) &\
+                                (iso['logL'] > -9) # Eliminates WDs
+            # The average mass mask extracts fitted sample based on color and logg
+            avmass_isomask = massratio_isomask &\
+                             (iso['Jmag']-iso['Ksmag'] > jkmins[i]) &\
+                             (iso['logg'] > logg_range[0]) &\
+                             (iso['logg'] < logg_range[1])
+            massratio = piso.mass_ratio(iso[massratio_isomask], 
+                                        logg_range=logg_range,
+                                        jk_range=[jkmins[i],999.])
+            avmass = piso.average_mass(iso[avmass_isomask])
+            isofactors[i] = avmass/massratio
+            
+    if verbose:
+        print(np.unique(isofactors))
 
     # Set up R,phi,z grid for integration
     if mass_int_type == 'cartesian_grid':
-        print('Cartesian grid integration not supported, using spherical grid')
+        if verbose:
+            print('Cartesian grid integration not supported, using spherical grid')
         mass_int_type = 'spherical_grid'
     elif mass_int_type == 'spherical_grid':
         r_min,r_max = int_r_range
