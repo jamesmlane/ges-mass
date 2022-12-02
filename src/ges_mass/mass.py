@@ -881,207 +881,175 @@ def domain_prior(densfunc, params):
     Returns:
         prior (bool) - Boolean corresponding to the uninformative prior    
     '''
-    alpha_positive = False
-    if densfunc is pdens.spherical:
-        # alpha
-        if params[0] < 0. and alpha_positive:return False
-        return True
-    elif densfunc is pdens.spherical_cutoff:
-        # alpha, beta
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.:return False
-    elif densfunc is pdens.axisymmetric:
-        # alpha, q
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.1:return False
-        if params[1] > 1.:return False
-        return True
-    elif densfunc is pdens.triaxial_norot:
-        # alpha, p, q
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.1:return False
-        if params[1] > 1.:return False
-        if params[2] < 0.1:return False
-        if params[2] > 1.:return False
-        return True
-    # if densfunc is pdens.triaxial_single_angle_aby:
-    #     # alpha, p, q, A, B, Y
-    #     if params[0] < 0. and alpha_positive:return False
-    #     if params[1] < 0.1:return False
-    #     if params[1] > 10.:return False
-    #     if params[2] < 0.1:return False
-    #     if params[2] > 10.:return False
-    #     if params[3] < 0.:return False
-    #     if params[3] > 1.:return False
-    #     if params[4] < 0.:return False
-    #     if params[4] > 1.:return False
-    #     if params[5] < 0.:return False
-    #     if params[5] > 1.:return False
-    #     return True
-    elif densfunc is pdens.triaxial_single_angle_zvecpa:
-        # alpha, p, q, theta, eta, phi
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.1:return False
-        if params[1] > 1.:return False
-        if params[2] < 0.1:return False
-        if params[2] > 1.:return False
-        if params[3] < 0.:return False
-        if params[3] > 1.:return False
-        if params[4] < 0.:return False
-        if params[4] > 1.:return False
-        if params[5] < 0.:return False
-        if params[5] > 1.:return False
-        return True
-    elif densfunc is pdens.triaxial_single_cutoff_zvecpa:
-        # alpha, beta, p, q, theta, eta, phi
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.:return False
-        if params[2] < 0.1:return False
-        if params[2] > 1.:return False
-        if params[3] < 0.1:return False
-        if params[3] > 1.:return False
-        if params[4] <= 0.:return False
-        if params[4] >= 1.:return False
-        if params[5] <= 0.:return False
-        if params[5] >= 1.:return False
-        if params[6] <= 0.:return False
-        if params[6] >= 1.:return False
-        return True
-    elif densfunc is pdens.triaxial_broken_angle_zvecpa:
-        # alpha_in, alpha_out, beta, p, q, theta, eta, phi
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0. and alpha_positive:return False
-        if params[2] < 0.:return False
-        if params[3] < 0.1:return False
-        if params[3] > 1.:return False
-        if params[4] < 0.1:return False
-        if params[4] > 1.:return False
-        if params[5] <= 0.:return False
-        if params[5] >= 1.:return False
-        if params[6] <= 0.:return False
-        if params[6] >= 1.:return False
-        if params[7] <= 0.:return False
-        if params[7] >= 1.:return False
-        return True
-    elif densfunc is pdens.triaxial_single_trunc_zvecpa:
-        # alpha, beta, p, q, theta, eta, phi
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.:return False
-        if params[2] < 0.1:return False
-        if params[2] > 1.:return False
-        if params[3] < 0.1:return False
-        if params[3] > 1.:return False
-        if params[4] <= 0.:return False
-        if params[4] >= 1.:return False
-        if params[5] <= 0.:return False
-        if params[5] >= 1.:return False
-        if params[6] <= 0.:return False
-        if params[6] >= 1.:return False
-        return True
-    elif densfunc is pdens.triaxial_single_angle_zvecpa_plusexpdisk:
-        # alpha, p, q, theta, eta, phi, fdisc
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.1:return False
-        if params[1] > 1.:return False
-        if params[2] < 0.1:return False
-        if params[2] > 1.:return False
-        if params[3] <= 0.:return False
-        if params[3] >= 1.:return False
-        if params[4] <= 0.:return False
-        if params[4] >= 1.:return False
-        if params[5] <= 0.:return False
-        if params[5] >= 1.:return False
-        if params[6] < 0.:return False
-        if params[6] > 1.:return False
-        return True
-    elif densfunc is pdens.triaxial_single_cutoff_zvecpa_plusexpdisk:
-        # alpha, beta, p, q, theta, eta, phi, fdisc
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.:return False
-        if params[2] < 0.1:return False
-        if params[2] > 1.:return False
-        if params[3] < 0.1:return False
-        if params[3] > 1.:return False
-        if params[4] <= 0.:return False
-        if params[4] >= 1.:return False
-        if params[5] <= 0.:return False
-        if params[5] >= 1.:return False
-        if params[6] <= 0.:return False
-        if params[6] >= 1.:return False
-        if params[7] < 0.:return False
-        if params[7] > 1.:return False
-        return True
-    elif densfunc is pdens.triaxial_broken_angle_zvecpa_plusexpdisk:
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0. and alpha_positive:return False
-        if params[2] < 0.:return False
-        if params[3] < 0.1:return False
-        if params[3] > 1.:return False
-        if params[4] < 0.1:return False
-        if params[4] > 1.:return False
-        if params[5] <= 0.:return False
-        if params[5] >= 1.:return False
-        if params[6] <= 0.:return False
-        if params[6] >= 1.:return False
-        if params[7] <= 0.:return False
-        if params[7] >= 1.:return False
-        if params[8] < 0.:return False
-        if params[8] > 1.:return False
-        return True
-    elif densfunc is pdens.triaxial_single_trunc_zvecpa_plusexpdisk:
-        # alpha, beta, p, q, theta, eta, phi, fdisc
-        if params[0] < 0. and alpha_positive:return False
-        if params[1] < 0.:return False
-        if params[2] < 0.1:return False
-        if params[2] > 1.:return False
-        if params[3] < 0.1:return False
-        if params[3] > 1.:return False
-        if params[4] <= 0.:return False
-        if params[4] >= 1.:return False
-        if params[5] <= 0.:return False
-        if params[5] >= 1.:return False
-        if params[6] <= 0.:return False
-        if params[6] >= 1.:return False
-        if params[7] < 0.:return False
-        if params[7] > 1.:return False
-        return True
-#     if densfunc is pdens.triaxial_einasto_zvecpa:
-#         if params[0] < 0. and alpha_positive:return False
-#         if params[1] < 0.5:return False
-#         if params[2] < 0.1:return False
-#         if params[2] > 1.:return False
-#         if params[3] < 0.1:return False
-#         if params[3] > 1.:return False
-#         if params[4] <= 0.:return False
-#         if params[4] >= 1.:return False
-#         if params[5] <= 0.:return False
-#         if params[5] >= 1.:return False
-#         if params[6] <= 0.:return False
-#         if params[6] >= 1.:return False
-#         if params[7] <= 0.:return False
-#         if params[7] >= 1.:return False
-#         return True
-#     if densfunc is pdens.triaxial_einasto_zvecpa_plusexpdisk:
-#         if params[0] < 0. and alpha_positive:return False
-#         if params[1] < 0.5:return False
-#         if params[2] < 0.1:return False
-#         if params[2] > 1.:return False
-#         if params[3] < 0.1:return False
-#         if params[3] > 1.:return False
-#         if params[4] <= 0.:return False
-#         if params[4] >= 1.:return False
-#         if params[5] <= 0.:return False
-#         if params[5] >= 1.:return False
-#         if params[6] <= 0.:return False
-#         if params[6] >= 1.:return False
-#         if params[7] <= 0.:return False
-#         if params[7] >= 1.:return False
-#         if params[8] <= 0.:return False
-#         if params[8] >= 1.:return False
-#         return True
+    alpha_positive = True # Force alpha positive
+    cutoff_alpha_excptn = True # Exception to above for exponential cutoff
+    broken_laws_steepen = True # Force broken power laws to steepen with radius
+    
+    if densfunc.__name__ == 'spherical':
+        a, = params[:1]
+        if a < 0. and alpha_positive: return False
+    
+    elif densfunc.__name__ == 'spherical_cutoff':
+        a,b = params[:2]
+        if a < 0. and alpha_positive: return False
+        if b < 0.: return False
+    
+    elif densfunc.__name__ == 'axisymmetric':
+        a,q = params[:2]
+        if a < 0. and alpha_positive: return False
+        if q < 0.1: return False
+        if q > 1.: return False
+    
+    elif densfunc.__name__ == 'triaxial_norot':
+        a,p,q = params[:3]
+        if a < 0. and alpha_positive: return False
+        if p < 0.1: return False
+        if q > 1.: return False
+        if p < 0.1: return False
+        if q > 1.: return False
+    
+    elif 'triaxial_single_angle_zvecpa' in densfunc.__name__:
+        a,p,q,th,et,pa = params[:6]
+        if a < 0. and alpha_positive: return False
+        if p < 0.1: return False
+        if p > 1.: return False
+        if q < 0.1: return False
+        if q > 1.: return False
+        if th <= 0.: return False
+        if th >= 1.: return False
+        if et <= _PRIOR_ETA_MIN: return False
+        if et >= 1.: return False
+        if pa <= 0.: return False
+        if pa >= 1.: return False
+        
+    elif 'triaxial_single_cutoff_zvecpa' in densfunc.__name__:
+        a,r,p,q,th,et,pa = params[:7]
+        if a < 0. and alpha_positive and not cutoff_alpha_excptn: return False
+        if r <= 0.: return False
+        if p < 0.1: return False
+        if p > 1.: return False
+        if q < 0.1: return False
+        if q > 1.: return False
+        if th <= 0.: return False
+        if th >= 1.: return False
+        if et <= _PRIOR_ETA_MIN: return False
+        if et >= 1.: return False
+        if pa <= 0.: return False
+        if pa >= 1.: return False
+    
+    elif 'triaxial_single_cutoff_zvecpa_inv' in densfunc.__name__:
+        a,b,p,q,th,et,pa = params[:7]
+        if a < 0. and alpha_positive and not cutoff_alpha_excptn: return False
+        if b <= 0.: return False
+        if p < 0.1: return False
+        if p > 1.: return False
+        if q < 0.1: return False
+        if q > 1.: return False
+        if th <= 0.: return False
+        if th >= 1.: return False
+        if et <= _PRIOR_ETA_MIN: return False
+        if et >= 1.: return False
+        if pa <= 0.: return False
+        if pa >= 1.: return False
+        
+    elif 'triaxial_broken_angle_zvecpa' in densfunc.__name__:
+        a1,a2,r,p,q,th,et,pa = params[:8]
+        if a1 < 0. and alpha_positive: return False
+        if a2 < 0. and alpha_positive: return False
+        if a2 <= a1 and broken_laws_steepen: return False
+        if r <= 0.: return False
+        if p < 0.1: return False
+        if p > 1.: return False
+        if q < 0.1: return False
+        if q > 1.: return False
+        if th <= 0.: return False
+        if th >= 1.: return False
+        if et <= _PRIOR_ETA_MIN: return False
+        if et >= 1.: return False
+        if pa <= 0.: return False
+        if pa >= 1.: return False
+    
+    elif 'triaxial_broken_angle_zvecpa_inv' in densfunc.__name__:
+        a1,a2,b,p,q,th,et,pa = params[:8]
+        if a1 < 0. and alpha_positive: return False
+        if a2 < 0. and alpha_positive: return False
+        if a2 <= a1 and broken_laws_steepen: return False
+        if b <= 0.: return False
+        if p < 0.1: return False
+        if p > 1.: return False
+        if q < 0.1: return False
+        if q > 1.: return False
+        if th <= 0.: return False
+        if th >= 1.: return False
+        if et <= _PRIOR_ETA_MIN: return False
+        if et >= 1.: return False
+        if pa <= 0.: return False
+        if pa >= 1.: return False
+        
+    elif 'triaxial_double_broken_angle_zvecpa' in densfunc.__name__:
+        a1,a2,a3,r1,r2,p,q,th,et,pa = params[:10]
+        if a1 < 0. and alpha_positive: return False
+        if a2 < 0. and alpha_positive: return False
+        if a3 < 0. and alpha_positive: return False
+        if a2 <= a1 and broken_laws_steepen: return False
+        if a3 <= a2 and broken_laws_steepen: return False
+        if r1 <= 0.: return False
+        if r2 <= r1: return False
+        if p < 0.1:return False
+        if p > 1.:return False
+        if q < 0.1:return False
+        if q > 1.:return False
+        if th <= 0.:return False
+        if th >= 1.:return False
+        if et <= _PRIOR_ETA_MIN:return False
+        if et >= 1.:return False
+        if pa <= 0.:return False
+        if pa >= 1.:return False
+    
+    elif 'triaxial_double_broken_angle_zvecpa_inv' in densfunc.__name__:
+        a1,a2,a3,r1,r2,p,q,th,et,pa = params[:10]
+        if a1 < 0. and alpha_positive: return False
+        if a2 < 0. and alpha_positive: return False
+        if a3 < 0. and alpha_positive: return False
+        if a2 <= a1 and broken_laws_steepen: return False
+        if a3 <= a2 and broken_laws_steepen: return False
+        if r1 <= 0.: return False
+        if r2 <= r1: return False
+        if p < 0.1:return False
+        if p > 1.:return False
+        if q < 0.1:return False
+        if q > 1.:return False
+        if th <= 0.:return False
+        if th >= 1.:return False
+        if et <= _PRIOR_ETA_MIN:return False
+        if et >= 1.:return False
+        if pa <= 0.:return False
+        if pa >= 1.:return False
+        
+    elif 'triaxial_single_trunc_zvecpa' in densfunc.__name__:
+        a,r,p,q,th,et,pa = params[:7]
+        if a < 0. and alpha_positive:return False
+        if r <= 0.:return False
+        if p < 0.1:return False
+        if p > 1.:return False
+        if q < 0.1:return False
+        if q > 1.:return False
+        if th <= 0.:return False
+        if th >= 1.:return False
+        if et <= _PRIOR_ETA_MIN:return False
+        if et >= 1.:return False
+        if pa <= 0.:return False
+        if pa >= 1.:return False
+    
     else:
         warnings.warn('Domain prior not defined for this density profile')
-        return True
+    
+    if 'plusexpdisk' in densfunc.__name__:
+        fdisk = params[-1]
+        if fdisk < 0.: return False
+        if fdisk > 1.: return False
+    
+    return True
 
 ### Plotting
 
