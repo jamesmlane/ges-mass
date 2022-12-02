@@ -13,8 +13,10 @@
 __author__ = "James Lane"
 
 ### Imports
+import os
 import numpy as np
 import multiprocessing
+import dill as pickle
 import itertools
 import emcee
 import tqdm
@@ -31,18 +33,24 @@ from . import mass as pmass
 _ro = 8.275 # Gravity Collab.
 _zo = 0.0208 # Bennett and Bovy
 
+_PRIOR_ETA_MIN = 0.5
+
 # ----------------------------------------------------------------------------
+
 
 ### Fitting
 
+
 def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
              nit=250, ncut=100, usr_log_prior=None, MLE_init=True, 
-             just_MLE=False, return_walkers=False):
+             just_MLE=False, return_walkers=False, convergence_n_tau=50,
+             convergence_delta_tau=0.01, optimizer_method='Nelder-Mead',
+             mcmc_diagnostic_filename=None):
     '''fit_dens:
     
     Fit a density profile to a set of data given an effective selection 
     function evaluted over a grid. For larger triaxial models the nit should 
-    be at least 2k-3k to satisfy autocorrelation timescale requirements. Burn 
+    be at least 20k-30k to satisfy autocorrelation timescale requirements. Burn 
     in should happen within 100 steps.
     
     Args:
@@ -82,31 +90,119 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
     # Use maximum likelihood to find a starting point
     if MLE_init:
         print('Doing maximum likelihood to find starting point')
-        opt = scipy.optimize.fmin(lambda x: pmass.mloglike(x, densfunc, effsel, 
-            Rgrid, phigrid, zgrid, Rdata, phidata, zdata, usr_log_prior), init, 
-            full_output=True)
-        print('MLE result: '+str(opt[0]))
+        opt_fn = lambda x: pmass.mloglike(x, densfunc, effsel, Rgrid, phigrid, 
+            zgrid, Rdata, phidata, zdata, usr_log_prior=usr_log_prior)
+        opt = scipy.optimize.minimize(opt_fn, init, method=optimizer_method)
+        if opt.success:
+            print('MLE successful')
+        else:
+            print('MLE unsucessful')
+            print('message: '+opt.message)
+        print('MLE result: '+str(opt.x))
         if just_MLE:
             return opt
+    else:
+        print('Initializing with params: '+str(init))
     
     # Initialize MCMC from either init or MLE
     if MLE_init:
-        pos = [opt[0] + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
+        pos = [opt.x + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
     else:
         pos = [init + 1e-3*np.random.randn(ndim) for i in range(nwalkers)]
     
-    # do MCMC
+    # Declare MCMC parameters
+    if nit is None:
+        print_nit = 'inf'
+    else:
+        print_nit = str(nit)
+    autocorr_n = 200 # Interval between checking autocorrelation criterion
+    allow_dvrgnt = True
+    autocorr = np.zeros(0)
+    old_tau = np.inf
+    max_nit_tau = 0
+    dvrgnt_nit_lim = int(2e4) # N to wait until checking divergence
+    dvrgnt_tau_nit_fac = 0.5 # Factor of max(nit/tau) when divergence declared
+    first_return = True
+    has_mcmc_diagnostic_file = False
+    if isinstance(mcmc_diagnostic_filename,str):
+        mcmc_diagnostic_file = open(mcmc_diagnostic_filename,'w')
+        has_mcmc_diagnostic_file = True
+    
+    # Do MCMC
     with multiprocessing.Pool(nprocs) as pool:
+        # Make sampler
         sampler = emcee.EnsembleSampler(nwalkers, ndim, pmass.loglike, 
             args=(densfunc, effsel, Rgrid, phigrid, zgrid, Rdata, phidata, 
                   zdata, usr_log_prior), pool=pool)
+        
+        # Draw samples
         print('Generating MCMC samples...')
         for i, result in enumerate(sampler.sample(pos, iterations=nit)):
-            if (i+1)%10 == 0: print('sampled '+str(i+1)+'/'+str(nit), end='\r')
+            # Progress
+            if (i+1)%10 == 0: print('sampled '+str(i+1)+'/'+print_nit+\
+                                    ' per walker', end='\r')
+
+            # Autocorrelation analysis, only every autocorr_n samples
+            if sampler.iteration % autocorr_n:
+                continue
+
+            # Compute the autocorrelation time so far
+            tau = sampler.get_autocorr_time(tol=0)
+            autocorr = np.append(autocorr,np.mean(tau))
+
+            # Parameters of MCMC diagnostics
+            nit_tau = np.min(sampler.iteration/tau)
+            delta_tau = (old_tau - tau) / tau
+            mean_tau = np.mean(tau)
+            max_nit_tau = np.max([nit_tau,max_nit_tau])
+            
+            # Record MCMC diagnostics
+            mcmc_diagnostic_txt = ('sampled '+str(i+1)+'\n'\
+                'mean tau: '+str(mean_tau)+'\n'+\
+                'min nit/tau: '+str(nit_tau)+'\n'+\
+                '[min,max] delta tau: ['+\
+                str(np.min(delta_tau))+','+str(np.max(delta_tau))+']\n'+\
+                '[min,max] acceptance fraction: ['+\
+                str(round(np.min(sampler.acceptance_fraction),2))+','+\
+                str(round(np.max(sampler.acceptance_fraction),2))+']\n'+\
+                'total max nit/tau '+str(max_nit_tau)+'\n'+\
+                '(nit/tau)/max[(nit/tau)] '+str(nit_tau/max_nit_tau)+'\n'+\
+                '---')
+            print(mcmc_diagnostic_txt)
+                
+            # print(mcmc_diagnostic_txt)
+            if has_mcmc_diagnostic_file:
+                mcmc_diagnostic_file.write(mcmc_diagnostic_txt)
+            
+            # Check convergence
+            converged = np.all(tau * convergence_n_tau < sampler.iteration)
+            converged &= np.all(np.abs(delta_tau) < 0.01)
+            if converged:
+                break
+            
+            # Check divergence
+            diverged = (nit_tau/max_nit_tau < dvrgnt_tau_nit_fac)
+            diverged &= ((i+1) >= dvrgnt_nit_lim) & allow_dvrgnt
+            if diverged:
+                dvrgnt_stop_txt = 'Stopped because divergence criterion met'
+                print(dvrgnt_stop_txt)
+                if has_mcmc_diagnostic_file:
+                    mcmc_diagnostic_file.write('\n\n'+dvrgnt_stop_txt)
+                break
+
+            old_tau = tau
             continue
-        # Flatten the ensemble of walkers, remove ncut (burn in) from each
-        # samples = sampler.chain[:, ncut:, :].reshape((-1, ndim))
-        samples = sampler.get_chain(flat=True,discard=ncut)
+
+        mcmc_finish_txt = 'Finished, sampled '+str(i+1)+'/'+str(nit)
+        print(mcmc_finish_txt)
+        if has_mcmc_diagnostic_file:
+            mcmc_diagnostic_file.write('\n\n'+mcmc_finish_txt)
+            mcmc_diagnostic_file.close()
+        
+        
+    # Flatten the ensemble of walkers, remove ncut (burn in) from each
+    # samples = sampler.chain[:, ncut:, :].reshape((-1, ndim))
+    samples = sampler.get_chain(flat=True,discard=ncut)
     
     if MLE_init:
         if return_walkers:
