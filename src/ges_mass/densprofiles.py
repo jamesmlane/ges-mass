@@ -544,73 +544,75 @@ def get_densfunc_mcmc_init_source(densfunc):
             }
     return corr[densfunc.__name__]
 
-def get_densfunc_mcmc_init_informed(densfunc, feh_range, init_type='ML', 
-                                    verbose=False):
-        '''get_densfunc_mcmc_init_informed:
+
+# def get_densfunc_mcmc_init_informed(densfunc, feh_range, init_type='ML', 
+#                                     verbose=False):
+#         '''get_densfunc_mcmc_init_informed:
         
-        Get an informed set of parameters to use as init. Normally load the 
-        maximum likelihood set of parameters of the source densprofile. 
-        init_type can be:
-        'ML' - Use the maximum likelihood samples from the source densfunc
-        'uninformed' - Just use default init
+#         Get an informed set of parameters to use as init. Normally load the 
+#         maximum likelihood set of parameters of the source densprofile. 
+#         init_type can be:
+#         'ML' - Use the maximum likelihood samples from the source densfunc
+#         'uninformed' - Just use default init
         
-        Args:
-            densfunc (callable) - Density profile to get init for
-            feh_range (array) - 2-element array of [feh minimum, feh maximum]
-            init_type (string) - Type of init to load. 'ML' for maximum 
-                likelihood sample, 'uninformed' for default init
-            verbose (bool) - Be verbose? [default False]
+#         Args:
+#             densfunc (callable) - Density profile to get init for
+#             feh_range (array) - 2-element array of [feh minimum, feh maximum]
+#             init_type (string) - Type of init to load. 'ML' for maximum 
+#                 likelihood sample, 'uninformed' for default init
+#             verbose (bool) - Be verbose? [default False]
             
-        Returns:
-            init (array) - Init parameters to use
-        '''
-        if densfunc is None:
-            assert densfunc is not None, 'Must have densfunc'
-        if feh_range is None:
-            assert feh_range is not None, 'Must have feh_range'
-            feh_range = self.feh_range
+#         Returns:
+#             init (array) - Init parameters to use
+#         '''
+#         if densfunc is None:
+#             assert densfunc is not None, 'Must have densfunc'
+#         if feh_range is None:
+#             feh_range = self.feh_range
+#             assert feh_range is not None, 'Must have feh_range'
         
-        assert init_type in ['ML','uninformed']
+#         assert init_type in ['ML','uninformed']
 
-        if densfunc.__name__ == 'triaxial_single_angle_zvecpa':
-            init_type = 'uninformed'
+#         if densfunc.__name__ == 'triaxial_single_angle_zvecpa':
+#             init_type = 'uninformed'
 
-        # Unpack
-        feh_min,feh_max = feh_range
+#         # Unpack
+#         feh_min,feh_max = feh_range
 
-        # Kinematic selection space
-        if isinstance(selec,str): selec=[selec,]
-        selec_suffix = '-'.join(selec)
+#         # Kinematic selection space
+#         if isinstance(selec,str): selec=[selec,]
+#         selec_suffix = '-'.join(selec)
 
-        # Get the densfunc that will provide the init
-        densfunc_source = pdens.get_densfunc_mcmc_init_source(densfunc)
+#         # Get the densfunc that will provide the init
+#         densfunc_source = pdens.get_densfunc_mcmc_init_source(densfunc)
 
-        # Check ML files
-        if init_type=='ML':
-            # Sample & ML filename
-            samples_filename = self.fit_data_dir+'samples.npy'
-            ml_filename = self.fit_data_dir+'mll_aic_bic.npy'
-            if (not os.path.exists(samples_filename)) or\
-               (not os.path.exists(ml_filename)):
-                warnings.warn('Files required for init_type "ML" not present'
-                              ', changing init_type to "uninformed"')
-                init_type = 'uninformed'
+#         # Check ML files
+#         if init_type=='ML':
+#             # Sample & ML filename
+#             samples_filename = self.fit_data_dir+'samples.npy'
+#             ml_filename = self.fit_data_dir+'mll_aic_bic.npy'
+#             if (not os.path.exists(samples_filename)) or\
+#                (not os.path.exists(ml_filename)):
+#                 warnings.warn('Files required for init_type "ML" not present'
+#                               ', changing init_type to "uninformed"')
+#                 init_type = 'uninformed'
 
-        if init_type == 'uninformed':
-            init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
-        if init_type == 'ML':
-            samples = np.load(samples_filename)
-            _,ml_ind,_,_ = np.load(ml_filename)
-            sample_ml = samples[int(ml_ind)]
-            init = pdens.make_densfunc_mcmc_init_from_source_params( densfunc, 
-                params_source=sample_ml, densfunc_source=densfunc_source)
+#         if init_type == 'uninformed':
+#             init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
+#         if init_type == 'ML':
+#             samples = np.load(samples_filename)
+#             _,ml_ind,_,_ = np.load(ml_filename)
+#             sample_ml = samples[int(ml_ind)]
+#             init = pdens.make_densfunc_mcmc_init_from_source_params( densfunc, 
+#                 params_source=sample_ml, densfunc_source=densfunc_source)
 
-        if verbose:
-            print('init_type: '+str(init_type))
-            print('densfunc_source: '+densfunc_source.__name__)
-            print('fit_data_dir: '+fit_data_dir)
+#         if verbose:
+#             print('init_type: '+str(init_type))
+#             print('densfunc_source: '+densfunc_source.__name__)
+#             print('fit_data_dir: '+fit_data_dir)
 
-        return init
+#         return init
+
 
 def make_densfunc_mcmc_init_from_source_params(densfunc,params_source,
     densfunc_source=None):
@@ -627,6 +629,7 @@ def make_densfunc_mcmc_init_from_source_params(densfunc,params_source,
     Returns:
         params
     '''
+    dname = densfunc.__name__
     if densfunc_source is not None:
         if not densfunc_source.__name__ ==\
             get_densfunc_mcmc_init_source(densfunc).__name__:
@@ -636,33 +639,36 @@ def make_densfunc_mcmc_init_from_source_params(densfunc,params_source,
         densfunc_source = get_densfunc_mcmc_init_source(densfunc)
     
     params = get_densfunc_mcmc_init_uninformed(densfunc)
-    if densfunc.__name__ == 'triaxial_single_angle_zvecpa':
+    if dname == 'triaxial_single_angle_zvecpa':
         return params
-    elif densfunc.__name__ == 'triaxial_single_cutoff_zvecpa':
+    elif dname == 'triaxial_single_cutoff_zvecpa':
         params[0] = params_source[0]
         params[2:] = params_source[1:]
-    elif densfunc.__name__ == 'triaxial_broken_angle_zvecpa':
+    elif dname == 'triaxial_single_cutoff_zvecpa_inv':
+        params[0] = params_source[0]
+        params[2:] = params_source[1:]
+    elif dname == 'triaxial_broken_angle_zvecpa':
         params[0] = params_source[0]
         params[1] = params[0]+1.
         params[3:] = params_source[1:]
-    elif densfunc.__name__ == 'triaxial_broken_angle_zvecpa_inv':
+    elif dname == 'triaxial_broken_angle_zvecpa_inv':
         params[0] = params_source[0]
         params[1] = params[0]+1.
         params[3:] = params_source[1:]
-    elif densfunc.__name__ == 'triaxial_double_broken_angle_zvecpa':
+    elif dname == 'triaxial_double_broken_angle_zvecpa':
         params[:2] = params_source[:2]
         params[2] = params[1]+1.
         params[3] = params_source[2]
         params[4] = params[3]+10.
         params[5:] = params_source[3:]
-    elif 'plusexpdisk' in densfunc.__name__:
+    elif 'plusexpdisk' in dname:
         params[:-1] = params_source
     else:
         warnings.warn('Could not find densfunc')
         return None
     return params
-        
-        
+
+   
 def get_densfunc_minimization_constraint(densfunc):
     '''get_densfunc_minimization_bounds:
     
@@ -675,6 +681,7 @@ def get_densfunc_minimization_constraint(densfunc):
         None
     '''
     return None
+
 
 def get_default_thick_disk_params():
     '''get_default_thick_disk_params:
