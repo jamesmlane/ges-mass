@@ -1508,14 +1508,14 @@ class _HaloFit:
             assert self.opt_post is not None, 'opt_post is not set, run '+\
                 'get_results()'
             if not self.opt_post.success:
-                print('warning post optimization was not successful')
+                print('warning: post optimization was not successful')
             return self.opt_post.x
         
         if ml_type == 'init':
             assert self.opt_init is not None, 'opt_init is not set, run '+\
                 'get_results()'
             if not self.opt_init.success:
-                print('Warning initial optimization was not successful')
+                print('warning: initial optimization was not successful')
             return self.opt_init.x
         
     def get_loglike_ml_aic_bic(self):
@@ -1639,25 +1639,39 @@ class _HaloFit:
             if self.verbose:
                 print('Calculating isofactor '+str(nfield)+'/'+str(nfield))
         
-        print('Unique isochrone factors: '+str(np.unique(isofactors)))
+        if self.verbose:
+            print('Unique isochrone factors: '+str(np.unique(isofactors)))
             
         return isofactors
     
     def run_optimization(self,init,method='Powell',optimizer_kwargs={}):
         '''run_optimization:
+        
+        Optimize the likelihood function using scipy.optimize.minimize
+        
+        Args:
+            init (array) - List of parameters to begin optimization
+            method (str) - Type of optimizer to use, see scipy.optimize 
+                [default 'Powell']
+            optimizer_kwargs (dict) - kwargs to pass to scipy.optimize.minimize
+        
+        Returns:
+            opt (scipy OptimizeResult) - Output of scipy.optimize.minimize
         '''
-        print('Doing maximum likelihood')
+        if self.verbose:
+            print('Doing maximum likelihood')
         effsel = self.get_fit_effsel()
         opt_fn = lambda x: pmass.mloglike(x, self.densfunc, effsel, self.Rgrid, 
             self.phigrid, self.zgrid, self.Rdata, self.phidata, self.zdata,
             usr_log_prior=self.usr_log_prior)
         opt = scipy.optimize.minimize(opt_fn, init, method=method, 
                                       **optimizer_kwargs)
-        if opt.success:
-            print('MLE successful')
-        else:
-            print('MLE unsucessful')
-            print('message: '+opt.message)
+        if self.verbose:
+            if opt.success:
+                    print('MLE successful')
+            else:
+                print('MLE unsucessful')
+                print('message: '+opt.message)
         return opt
     
     def calculate_ml_aic_bic(self,ml_type='post', n_param=None, n_star=None):
@@ -1697,11 +1711,11 @@ class _HaloFit:
             mll = -np.abs(np.max(self.loglike))
         elif ml_type == 'post':
             if not self.opt_post.success:
-                print('warning post optimization was not successful')
+                print('warning: post optimization was not successful')
             mll = -np.abs(self.opt_post.fun)
         elif ml_type == 'init':
             if not self.opt_init.success:
-                print('Warning initial optimization was not successful')
+                print('warning: initial optimization was not successful')
             mll = -np.abs(self.opt_init.fun)
         
         aic = 2*n_param - 2*mll
