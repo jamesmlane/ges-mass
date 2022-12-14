@@ -127,7 +127,7 @@ def denormalize_parameters(params,model):
     Transform parameters from a normalized [0,1] domain to a finite domain
     
     Args:
-        params (list) - Normalized density function parameters 
+        params (list) - Normalized density function parameters with shape (n,)
         model (callable) - Density function
     
     Returns:
@@ -370,7 +370,7 @@ def get_densfunc_params_indx(densfunc,param):
     
     indx = []
     for i in range(len(param)):
-        assert param[i] in param_names, '"'+params[i]+'" not in densfunc list'
+        assert param[i] in param_names, '"'+param[i]+'" not in densfunc list'
         indx = indx+[ np.where(param_names==param[i])[0][0] ]
     
     return indx
@@ -1276,56 +1276,6 @@ def triaxial_single_cutoff_zvecpa_plusexpdisk(R,phi,z,
         return (1-fdisk)*dens, fdisk*diskdens
     else:
         return (1-fdisk)*dens+fdisk*diskdens
-
-    
-def triaxial_single_cutoff_zvecpa_plusexpdisk_mackereth(R,phi,z,params=[2.,1.,0.5,0.5,0.,0.,0.,0.01],split=False):
-    """
-    triaxial power law, with zvec,pa rotation and expdisk contaminant
-    INPUT
-        R, phi, z - Galactocentric cylindrical coordinates
-        params - [alpha,beta,p,q,theta,phi,pa,fdisc]
-    OUTPUT
-        density at R, phi, z
-    """
-    #_R0 = 8.125 # Gravity Collab.
-    #_z0 = 0.02 #bennett and bovy
-    _R0 = 8.275 # Gravity Collab.
-    _z0 = 0.0208 #bennett and bovy
-    original_z = np.copy(z)
-    grid = False
-    theta = params[4]*2*np.pi
-    tz = (params[5]*2)-1
-    zvec = np.array([np.sqrt(1-tz**2)*np.cos(theta), np.sqrt(1-tz**2)*np.sin(theta), tz])
-    pa = (params[6]*np.pi)
-    if np.ndim(R) > 1:
-        grid = True
-        dim = np.shape(R)
-        R = R.reshape(np.product(dim))
-        phi = phi.reshape(np.product(dim))
-        z = z.reshape(np.product(dim))
-        original_z = original_z.reshape(np.product(dim))
-    x, y, z = R*np.cos(phi), R*np.sin(phi), z
-    x, y, z = transform_zvecpa_mackereth(np.dstack([x,y,z])[0], zvec,pa)
-    xsun,ysun,zsun = transform_zvecpa_mackereth([_R0,0.,_z0],zvec,pa)
-    r_e = np.sqrt(x**2+y**2/params[2]**2+z**2/params[3]**2)
-    r_e_sun = np.sqrt(xsun**2+ysun**2/params[2]**2+zsun**2/params[3]**2)
-    hr = 1/2.
-    hz = 1/0.8
-    diskdens = np.exp(-hr*(R-_R0)-hz*np.fabs(original_z))
-    diskdens_sun = np.exp(-hr*(_R0-_R0)-hz*np.fabs(_z0))
-    dens = (r_e)**(-params[0])*np.exp(-params[1]*r_e)
-    sundens = (r_e_sun)**(-params[0])*np.exp(-params[1]*r_e_sun)
-    if split:
-        dens, diskdens = (1-params[7])*dens/sundens, (params[7])*diskdens/diskdens_sun
-        if grid:
-            dens = dens.reshape(dim)
-            diskdens = diskdens.reshape(dim)
-        return dens, diskdens
-    else:
-        dens = (1-params[7])*dens/sundens+(params[7]*diskdens/diskdens_sun)
-        if grid:
-            dens = dens.reshape(dim)
-        return dens
 
 
 def triaxial_broken_angle_zvecpa_plusexpdisk(R,phi,z,
