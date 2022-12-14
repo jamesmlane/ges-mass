@@ -1051,54 +1051,6 @@ def domain_prior(densfunc, params):
     
     return True
 
-### Plotting
-
-def plot_model(model, params, minmax=[-50,50], nside=150):
-    '''plot_model:
-    
-    Plot the density of a model in 3 planes: XY, YZ, XZ
-    
-    Args:
-        model (function) - Density profile
-        params (list) - Parameters that describe the density model
-        minmax (list) - Range of model to show
-        nside (int) - Number of samples for the grid to show
-    
-    Returns:
-        None (although fig and ax are created and shown)
-    '''
-    xyzgrid = np.mgrid[minmax[0]:minmax[1]:nside*1j,
-                       minmax[0]:minmax[1]:nside*1j,
-                       minmax[0]:minmax[1]:nside*1j]
-    shape = np.shape(xyzgrid.T)
-    xyzgrid = xyzgrid.T.reshape(np.product(shape[:3]),shape[3])
-    rphizgrid = coords.rect_to_cyl(xyzgrid[:,0], xyzgrid[:,1], xyzgrid[:,2])
-    rphizgrid = np.dstack([rphizgrid[0],rphizgrid[1],rphizgrid[2]])[0]
-    rphizgrid = rphizgrid.reshape(nside,nside,nside,3).T
-    denstxyz = model(rphizgrid[0],rphizgrid[1],rphizgrid[2], params=params)
-    fig, ax = plt.subplots(1,3)
-    fig.set_size_inches(10,3.4)
-    ax[0].contour(np.rot90(np.log10(np.sum(denstxyz, axis=0))), 
-                  extent=[minmax[0],minmax[1],minmax[0],minmax[1]], 
-                  cmap=plt.cm.cividis)
-    ax[1].contour(np.rot90(np.log10(np.sum(denstxyz, axis=1))), 
-                  extent=[minmax[0],minmax[1],minmax[0],minmax[1]], 
-                  cmap=plt.cm.cividis)
-    ax[2].contour(np.rot90(np.log10(np.sum(denstxyz, axis=2))), 
-                  extent=[minmax[0],minmax[1],minmax[0],minmax[1]], 
-                  cmap=plt.cm.cividis)
-    xdat, ydat, zdat = coords.cyl_to_rect(Rphiz[:,0], Rphiz[:,1], Rphiz[:,2])
-    ax[0].set_xlabel(r'y')
-    ax[0].set_ylabel(r'z')
-    ax[1].set_xlabel(r'x')
-    ax[1].set_ylabel(r'z')
-    ax[2].set_xlabel(r'x')
-    ax[2].set_ylabel(r'y')
-    for axis in ax:
-        axis.set_ylim(minmax[0],minmax[1])
-        axis.set_xlim(minmax[0],minmax[1])
-    fig.tight_layout()
-
 
 ### Distance Modulus Posterior for Model
 
@@ -1541,7 +1493,7 @@ class _HaloFit:
             self.ml_ind = ml_ind
             self.aic = aic
             self.bic = bic
-            if verbose:
+            if self.verbose:
                 print('Set self.ml, self.ml_ind, self.aic, self.bic')
         else:
             print('warning: File containing ML, AIC, BIC does not exist')
@@ -2061,7 +2013,7 @@ class HaloFit(_HaloFit):
         Returns:
             None
         '''
-        if verbose:
+        if self.verbose:
             print('Setting densfunc to: '+densfunc.__name__)
         # Set the densfunc
         self.densfunc=densfunc
