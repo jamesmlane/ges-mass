@@ -2165,3 +2165,36 @@ class MockHaloFit(_HaloFit):
 # Null prior for class
 def _null_prior(densfunc,params):
     return 0
+
+def check_hf_versions(densfunc,selec,feh_range,fit_type,fit_dir):
+    '''check_hf_versions:
+    
+    For a given densfunc
+    
+    Args:
+    
+    Returns:
+        versions (list) - List of version strings for given densfunc and 
+            parameters
+    '''
+    # Unpack [Fe/H]
+    feh_min,feh_max = feh_range
+    
+    # Make the selection string
+    if 'all' in fit_type:
+        selec_str = ''
+    else:
+        if selec[-1] == '/':
+            selec_str = selec
+        else:
+            selec_str = selec+'/'
+    
+    # Make the fit directory
+    fit_data_dir = fit_dir+'data/'+fit_type+'/'+selec_str+str(feh_min)+\
+        '_feh_'+str(feh_max)+'/'+densfunc.__name__+'/'
+    
+    try:
+        res = os.listdir(fit_data_dir)
+        print(res)
+    except FileNotFoundError:
+        print('warning: path does not exist, path: '+str(fit_data_dir))
