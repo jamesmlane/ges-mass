@@ -435,7 +435,7 @@ def plot_distmod_posterior(hf, pd=None, nrand=None, posterior_type='lines',
 
 # Plotting utilities for kinematic spaces
 
-def add_diamond_boundary(ax,dedge=1.2,zorder=5):
+def add_diamond_boundary(ax,dedge=1.2,zorder=7,draw_tick_fac=50):
     '''add_diamond_boundary:
     
     Add the diamond-shaped boundary and other things to the action diamond
@@ -459,20 +459,22 @@ def add_diamond_boundary(ax,dedge=1.2,zorder=5):
                                 [-dedge,dedge],[-dedge,-dedge],[0.5,-dedge],
                                 [0.,-1.]]
         blank_contour_poly_R = patches.Polygon(blank_contour_pts_R, 
-            closed=True, fill=True, zorder=2, edgecolor='None', 
+            closed=True, fill=True, zorder=zorder-1, edgecolor='None', 
             facecolor='White')
         blank_contour_poly_L = patches.Polygon(blank_contour_pts_L, 
-            closed=True, fill=True, zorder=2, edgecolor='None', 
+            closed=True, fill=True, zorder=zorder-1, edgecolor='None', 
             facecolor='White')
         ax.add_artist(blank_contour_poly_R)
         ax.add_artist(blank_contour_poly_L)
         
         # Do artificial ticks because the ticks get overwritten by the 
         # drawing of the white patch
-        ticklen = 2*dedge/20
-        xticks = [-1,0,1]
-        yticks = [-1,0,1]
+        ticklen = 2*dedge/draw_tick_fac
+        xticks = [-1,-0.5,0,0.5,1]
+        yticks = [-1,-0.5,0,0.5,1]
         tickwidth = 1.
+        ax.set_xticks(xticks)
+        ax.set_yticks(yticks)
         for i in range(len(xticks)):
             ax.plot( [xticks[i],xticks[i]], [-dedge,-dedge+ticklen], 
                 linewidth=tickwidth, color='Black', zorder=zorder )
