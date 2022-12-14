@@ -25,6 +25,7 @@ import apogee.tools as apotools
 import apogee.tools.read as apread
 import mwdust
 import pdb
+import warnings
 
 from . import plot as pplot
 from . import mass as pmass
@@ -393,6 +394,93 @@ def lane2022_kinematic_selections(version='current'):
                      }
     print('Version of selection dictionary is: '+version)
     return selec_dict
+
+
+def line_intersects(ax,ay,bx,by):
+    '''line_intersects:
+
+    Determines if two lines intersect
+    
+    Args:
+        ax (list) - x-coordinates of line a
+        ay (list) - y-coordinates of line a
+        bx (list) - x-coordinates of line b
+        by (list) - y-coordinates of line b
+    
+    Returns:
+        res (bool) - True if lines intersect, False if not
+    '''
+    det = (by[1]-by[0])*(ax[1]-ax[0]) - (bx[1]-bx[0])*(ay[1]-ay[0])
+    if det:
+        ua = ((bx[1]-bx[0])*(ay[0]-by[0]) - (by[1]-by[0])*(ax[0]-bx[0])) / det
+        ub = ((ax[1]-ax[0])*(ay[0]-by[0]) - (ay[1]-ay[0])*(ax[0]-bx[0])) / det
+    else:
+        return False
+    if not (0 <= ua <= 1 and 0 <= ub <= 1):
+        return False
+    else:
+        return True
+
+def lines_boundary_mask(xs,ys,lx,ly,where):
+    '''lines_boundary_mask:
+    
+    Determines if points are to the left or right of a boundary
+
+    Args:
+        xs (np.array) - x-coordinates of points to be masked
+        ys (np.array) - y-coordinates of points to be masked
+        lx (list) - x coordinates of boundary vertices
+        ly (list) - y coordinates of boundary vertices
+        where (text) - Orientation of points w.r.t. boundary to determine mask
+        
+    Returns:
+        mask (np.array) - boolean mask of point position w.r.t. boundary given
+            where
+    '''
+    npt = len(xs)
+    nseg = len(lx)-1 # Number of line segments 1 less than number of vertices
+    assert len(xs) == len(ys)
+    mask = np.zeros(npt,dtype=bool)
+    
+    # Based on "where", lines are drawn to inf and intersect w/ each boundary 
+    # segment is checked.
+    if where == 'left': # Mask=True if points are to the left
+        xe = 9999.
+        ye = 0.
+    if where == 'right': # mask=True if points are to the right
+        pass
+    if where == 'below': # mask=True if points are below
+        pass
+    if where == 'above': # mask=True if points are above
+        pass
+    
+    for i in range(npt):
+        _mask = False
+        for j in range(nseg):
+            _mask |= line_intersects([xs[i],xe], [ys[i],ye], 
+                                     [lx[j],lx[j+1]], [ly[j],ly[j+1]])
+        mask[i] = _mask
+    return mask
+
+def make_mask_from_apogee_ids(allstar,apogee_ids):
+    '''make_mask_from_apogee_ids:
+
+    Use list of APOGEE IDs to make a boolean mask for the respective allstar 
+    array.
+
+    Args:
+        allstar (numpy array) - Target APOGEE allstar file to be masked
+        apogee_ids (numpy array) - Array of APOGEE IDs to use in masking
+    
+    Returns:
+        mask (numpy array) - Boolean mask of APOGEE IDs
+    '''
+    # Cast APOGEE IDs to string
+    allstar_apogee_ids = allstar['APOGEE_ID'].astype(str)
+    apogee_ids = apogee_ids.astype(str)
+    # Make mask
+    mask = np.isin(allstar_apogee_ids,apogee_ids)
+    return mask
 
 def make_dmod_grid(n,dmod_min,dmod_max):
     '''make_dmod_grid:
