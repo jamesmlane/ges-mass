@@ -1885,48 +1885,52 @@ class HaloFit(_HaloFit):
         # Mask out GS/E stars
         if 'gse' in fit_type:
             self.mask_disk = mask_disk
-            self.mask_halo = None
-            self.halo_mask = None
+            self.mask_halo = None # Not used
+            self.halo_mask = None # Not used
             gse_mask_filename = gap_dir+'hb_apogee_ids_'+self.selec
             if mask_disk:
                 gse_mask_filename += '_dmask.npy'
             else:
                 gse_mask_filename += '.npy'
             gse_apogee_IDs = np.load(gse_mask_filename)
-            gse_mask = np.in1d(allstar['APOGEE_ID'].astype(str),gse_apogee_IDs)
+            gse_mask = putil.make_mask_from_apogee_ids(allstar,
+                gse_apogee_IDs)
             orbs_gse = orbs[gse_mask]
             allstar_gse = allstar[gse_mask]
             self.gse_mask = gse_mask
 
             # Obervational masking
-            obs_mask = (allstar_gse['FE_H'] > self.feh_min) &\
-                       (allstar_gse['FE_H'] < self.feh_max) &\
-                       (allstar_gse['LOGG'] > self.logg_min) &\
+            obs_mask = (allstar_gse['LOGG'] > self.logg_min) &\
                        (allstar_gse['LOGG'] < self.logg_max)
+                       #(allstar_gse['FE_H'] > self.feh_min)
+                       #(allstar_gse['FE_H'] < self.feh_max)
             self.obs_mask = obs_mask
             orbs_obs = orbs_gse[obs_mask]
             allstar_obs = allstar_gse[obs_mask]   
+       
         elif 'all' in fit_type:
-            self.gse_mask = None
-            self.mask_disk = None
+            self.gse_mask = None # Not used
+            self.mask_disk = None # Not used
             self.mask_halo = mask_halo
             if mask_halo:
                 halo_mask_filename = gap_dir+'halo_apogee_ids.npy'
                 halo_apogee_IDs = np.load(halo_mask_filename)
-                halo_mask = np.in1d(allstar['APOGEE_ID'].astype(str),
-                                    halo_apogee_IDs)
+                halo_mask = putil.make_mask_from_apogee_ids(allstar,
+                    halo_apogee_IDs)
                 self.halo_mask = halo_mask
             else:
                 self.halo_mask = None
             
-            obs_mask = (allstar['LOGG'] > logg_min) &\
-                       (allstar['LOGG'] < logg_max)
+            # A mask for observational properties, should be redundant
+            obs_mask = (allstar['LOGG'] > self.logg_min) &\
+                       (allstar['LOGG'] < self.logg_max)
+                       #(allstar_gse['FE_H'] > self.feh_min)
+                       #(allstar_gse['FE_H'] < self.feh_max)
             
             if mask_halo:
                 obs_mask = obs_mask & halo_mask
             else: # Use a default metallicity selection
-                obs_mask = obs_mask & (allstar['FE_H'] > feh_min) &\
-                                      (allstar['FE_H'] < feh_max)
+                pass
             
             self.obs_mask = obs_mask
             orbs_obs = orbs[obs_mask]
