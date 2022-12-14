@@ -1,8 +1,11 @@
 ## Project-specific
 
-# Data / plot directories
+# Data / plot directories / plots
 data/
 *fig/
+*tables/
+*.png
+*.pdf
 
 # Notebook stuff
 notebooks/start_notebook.bash
@@ -12,12 +15,18 @@ notebooks/modules/
 notebooks/sample/
 # notebooks/**/*.ipynb
 notebooks/**/data/
+notebooks/**/fig/
+
+# Mocks and Dev
+notebooks/apo_mocks/
+notebooks/scratch/
 
 # Script stuff
 scripts/fit_mass/
 
 # Other
 scratch/
+src/ges_mass/*mackereth.py
 
 ################################################################################
 
