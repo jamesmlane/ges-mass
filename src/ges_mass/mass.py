@@ -28,7 +28,6 @@ from galpy.util import coords
 from . import densprofiles as pdens
 from . import util as putil
 from . import iso as piso
-from . import mass as pmass
 
 _ro = 8.275 # Gravity Collab.
 _zo = 0.0208 # Bennett and Bovy
@@ -39,6 +38,130 @@ _PRIOR_ETA_MIN = 0.5
 
 
 ### Fitting
+
+def fit(hf, nprocs=10, force_fit=False, mle_init=True, just_mle=False, 
+        return_walkers=True, optimizer_method='Powell',
+        mass_int_type='spherical_grid', batch_masses=True, 
+        make_ml_aic_bic=True, calculate_masses=True, 
+        post_optimization=True, mcmc_diagnostic=False):
+    '''fit:
+    
+    Front-facing wrapper of fit_dens, mass_from_density_samples, and likelihood 
+    calculation which uses HaloFit class to set parameters and save results to 
+    file.
+    
+    Args:
+        hf (HaloFit) - Class for halo fit
+        nprocs (int) - Number of processors to use [default 10]
+        force_fit (bool) - Force overwrite existing results? [default False]
+        mle_init (bool) - Initialize the fit with maximum likelihood? [default
+            True]
+        just_mle (bool) - Only calculate the maximum likelihood, no MCMC?
+        return_walkers (bool) - Return the emcee sampler object? [default True]
+        optimizer_method (string) - Optimizer method to use [default 'Powell']
+        mass_int_type (string) - Scheme for mass integration [default 
+            'spherical_grid']
+        batch_masses (bool) - Batch calculate the masses [default True]
+        make_ml_aic_bic (bool) - Calculate maximum likelihood, AIC, BIC using
+            samples [default True]
+        calculate_masses (bool) - Do mass calculations [default True]
+        post_optimization (bool) - Do optimization starting from MCMC maximum 
+            likelihood [default True]
+    
+    Returns:
+        None
+    '''
+    # Overwrite?
+    if not force_fit and os.path.exists(hf.fit_data_dir+'samples.npy') and\
+                         os.path.exists(hf.fit_data_dir+'masses.npy'):
+        assert False, 'Not overwriting data in '+hf.fit_data_dir+\
+            ', set force_fit=True'
+    
+    # Prepare MCMC diagnostics
+    if mcmc_diagnostic:
+        mcmc_diagnostic_filename = hf.fit_data_dir+'mcmc_diagnostics.txt'
+    else:
+        mcmc_diagnostic_filename = None
+    
+    # Do MLE and MCMC
+    out_fit = fit_dens(densfunc=hf.densfunc, effsel=hf.get_fit_effsel(), 
+        effsel_grid=hf.get_effsel_list(), data=hf.get_data_list(), 
+        init=hf.init, nprocs=nprocs, nwalkers=hf.nwalkers, nit=hf.nit, 
+        ncut=hf.ncut, usr_log_prior=hf.usr_log_prior, MLE_init=mle_init, 
+        just_MLE=just_mle, return_walkers=return_walkers,
+        mcmc_diagnostic_filename=mcmc_diagnostic_filename,
+        optimizer_method='Powell')
+    
+    # Unpack results based on supplied keywords
+    if just_mle:
+        return out_fit
+    if return_walkers:
+        if mle_init:
+            samples, opt, sampler = out_fit
+        else:
+            samples, sampler = out_fit
+    else:
+        if mle_init:
+            samples, opt = out_fit
+        else:
+            samples = out_fit
+    
+    # Save fits
+    np.save(hf.fit_data_dir+'samples.npy',samples)
+    if mle_init:
+        with open(hf.fit_data_dir+'opt.pkl','wb') as f:
+            pickle.dump(opt,f)
+    if return_walkers:
+        with open(hf.fit_data_dir+'sampler.pkl','wb') as f:
+            pickle.dump(sampler,f)
+    
+    # Calculate likelihoods, ML, AIC, BIC
+    if make_ml_aic_bic:
+        print('Calculating likelihoods for MCMC samples')
+        n_samples,n_param = samples.shape
+        
+        if return_walkers:
+            loglike = sampler.get_log_prob(flat=True, discard=hf.ncut)
+        else:
+            loglike = np.zeros(n_samples)
+            for i in range(n_samples):
+                print(str(i+1)+'/'+str(n_samples),end='\r')
+                loglike[i] = loglike(samples[i], hf.densfunc, hf.get_fit_effsel(), 
+                                           hf.Rgrid, hf.phigrid, hf.zgrid, 
+                                           hf.Rdata, hf.phidata, hf.zdata, 
+                                           hf.usr_log_prior)
+        mll = np.max(loglike)
+        mll_ind = np.argmax(loglike)
+        aic = 2*n_param - 2*mll
+        bic = np.log(hf.n_star)*n_param - 2*mll
+        np.save(hf.fit_data_dir+'loglike.npy',loglike)
+        np.save(hf.fit_data_dir+'mll_aic_bic.npy',
+                np.array([mll,mll_ind,aic,bic]))
+    
+    # Calculate mass
+    if calculate_masses:
+        out_mass = mass_from_density_samples( samples=samples, 
+            densfunc=hf.densfunc, n_star=hf.n_star, effsel=hf.get_fit_effsel(), 
+            effsel_grid=hf.get_effsel_list(), iso=hf.get_iso(), 
+            feh_range=hf.feh_range, logg_range=hf.logg_range, 
+            jkmins=hf.jkmins, n_mass=hf.n_mass, mass_int_type=mass_int_type, 
+            int_r_range=hf.int_r_range, nprocs=nprocs, batch=batch_masses, 
+            ro=hf.ro, zo=hf.zo)
+        masses, facs, mass_inds, isofactors = out_mass
+
+        # Save results
+        np.save(hf.fit_data_dir+'masses.npy',masses)
+        np.save(hf.fit_data_dir+'facs.npy',facs)
+        np.save(hf.fit_data_dir+'mass_inds.npy',mass_inds)
+        np.save(hf.fit_data_dir+'isofactors.npy',isofactors)
+    
+    # Do post optimization from MCMC max likelihood
+    if post_optimization:
+        assert make_ml_aic_bic, 'must have found ML samples'
+        post_init = samples[mll_ind]
+        opt_post = hf.run_optimization(post_init)
+        with open(hf.fit_data_dir+'opt_post.pkl','wb') as f:
+            pickle.dump(opt_post,f)
 
 
 def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
