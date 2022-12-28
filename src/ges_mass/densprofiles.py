@@ -23,6 +23,7 @@ norm_eta = lambda x : x # (x+1)/2
 denorm_eta = lambda x : x # 2*x-1
 theta_scale = 2*np.pi
 phi_scale = np.pi
+rad_to_degr = 180./np.pi
 
 # Utilities for normalization and unit conversion
 
@@ -121,7 +122,7 @@ def normalize_parameters(params,model):
         
     return params_out
 
-def denormalize_parameters(params,model):
+def denormalize_parameters(params,model,theta_in_degr=False,phi_in_degr=False):
     '''denormalize_parameters:
     
     Transform parameters from a normalized [0,1] domain to a finite domain
@@ -129,10 +130,23 @@ def denormalize_parameters(params,model):
     Args:
         params (list) - Normalized density function parameters with shape (n,)
         model (callable) - Density function
+        theta_in_degr (bool) - If physical_units return theta in degrees 
+            instead of radians
+        phi_in_degr (bool) - If physical_units return phi in degrees instead
+            of radians
+        
     
     Returns:
         params (list) - Density function parameters
     '''
+    # Handle degrees and radians
+    _theta_scale = float(theta_scale)
+    if theta_in_degr:
+        _theta_scale *= rad_to_degr
+    _phi_scale = float(phi_scale)
+    if phi_in_degr:
+        _phi_scale *= rad_to_degr
+    
     # params should be 2d for indexing
     params = np.atleast_2d(params)
     
@@ -152,9 +166,9 @@ def denormalize_parameters(params,model):
         params_out = np.array([params[:,0],
                                params[:,1],
                                params[:,2],
-                               params[:,3]*theta_scale,
+                               params[:,3]*_theta_scale,
                                denorm_eta(params[:,4]),
-                               params[:,5]*phi_scale
+                               params[:,5]*_phi_scale
                               ]).T
     if 'triaxial_single_cutoff_zvecpa' in model.__name__: # Also inverse
         # params are [alpha,r1 or beta1,p,q,theta,eta,pa]
@@ -163,9 +177,9 @@ def denormalize_parameters(params,model):
                                params[:,1],
                                params[:,2],
                                params[:,3],
-                               params[:,4]*theta_scale,
+                               params[:,4]*_theta_scale,
                                denorm_eta(params[:,5]),
-                               params[:,6]*phi_scale
+                               params[:,6]*_phi_scale
                               ]).T
     if 'triaxial_broken_angle_zvecpa' in model.__name__: # Also inverse
         # params are [alpha_in,alpha_out,r1 or beta1,p,q,theta,eta,pa]
@@ -175,9 +189,9 @@ def denormalize_parameters(params,model):
                                params[:,2],
                                params[:,3],
                                params[:,4],
-                               params[:,5]*theta_scale,
+                               params[:,5]*_theta_scale,
                                denorm_eta(params[:,6]),
-                               params[:,7]*phi_scale
+                               params[:,7]*_phi_scale
                               ]).T
     if 'triaxial_double_broken_angle_zvecpa' in model.__name__:
         # params are [alpha_in,alpha_mid,alpha_out,r1,r2,p,q,theta,eta,pa]
@@ -189,9 +203,9 @@ def denormalize_parameters(params,model):
                                params[:,4],
                                params[:,5],
                                params[:,6],
-                               params[:,7]*theta_scale,
+                               params[:,7]*_theta_scale,
                                denorm_eta(params[:,8]),
-                               params[:,9]*phi_scale
+                               params[:,9]*_phi_scale
                               ]).T
     if 'triaxial_single_trunc_zvecpa' in model.__name__:
         # params are [alpha,beta,p,q,theta,eta,pa]
@@ -200,9 +214,9 @@ def denormalize_parameters(params,model):
                                params[:,1],
                                params[:,2],
                                params[:,3],
-                               params[:,4]*theta_scale,
+                               params[:,4]*_theta_scale,
                                denorm_eta(params[:,5]),
-                               params[:,6]*phi_scale
+                               params[:,6]*_phi_scale
                               ]).T
     
     if 'plusexpdisk' in model.__name__:
@@ -238,11 +252,10 @@ def transform_zvecpa(xyz,zvec,pa):
     trot= np.dot(pa_rot,zvec_rot)
     if np.ndim(xyz) == 1:
         tgalcenrect = np.dot(trot, xyz)
-        x, y, z = tgalcenrect[0], tgalcenrect[1], tgalcenrect[2]
+        return tgalcenrect[0], tgalcenrect[1], tgalcenrect[2]
     else:
         tgalcenrect = np.einsum('ij,aj->ai', trot, xyz)
-        x, y, z = tgalcenrect[:,0], tgalcenrect[:,1], tgalcenrect[:,2]
-    return x, y, z
+        return tgalcenrect[:,0], tgalcenrect[:,1], tgalcenrect[:,2]
 
 
 def eta_theta_to_zvec(eta,theta):
@@ -415,26 +428,31 @@ def get_densfunc_nodisk(densfunc):
         return None
 
     
-def get_densfunc_mcmc_labels(densfunc, physical_units=False):
+def get_densfunc_mcmc_labels(densfunc, physical_units=False, 
+    theta_in_degr=False, phi_in_degr=False):
     '''get_densfunc_mcmc_labels:
     
     Args:
         densfunc (callable) - density function
-        physical_units (bool) - 
+        physical_units (bool) - Return the labels with physical units attached
+        theta_in_degr (bool) - If physical_units return theta in degrees 
+            instead of radians
+        phi_in_degr (bool) - If physical_units return phi in degrees instead
+            of radians
     
     Returns:
         labels (arr) - String array
     '''
     dname = densfunc.__name__
     if  'triaxial_single_angle_zvecpa' in dname:
-        labels = [r'$\alpha$', r'$p$', r'$q$', r'$\theta$', r'$\eta$', 
+        labels = [r'$\alpha_{1}$', r'$p$', r'$q$', r'$\theta$', r'$\eta$', 
                   r'$\phi$']
     elif 'triaxial_single_cutoff_zvecpa' in dname:
         if 'inv' in dname:
-            labels = [r'$\alpha$', r'$\beta$', r'$p$', r'$q$', r'$\theta$', 
+            labels = [r'$\alpha_{1}$', r'$\beta$', r'$p$', r'$q$', r'$\theta$', 
                       r'$\eta$', r'$\phi$']
         else:
-            labels = [r'$\alpha$', r'$r_{1}$', r'$p$', r'$q$', r'$\theta$', 
+            labels = [r'$\alpha_{1}$', r'$r_{1}$', r'$p$', r'$q$', r'$\theta$', 
                       r'$\eta$', r'$\phi$']
     elif 'triaxial_broken_angle_zvecpa' in dname:
         if 'inv' in dname:
@@ -461,9 +479,16 @@ def get_densfunc_mcmc_labels(densfunc, physical_units=False):
             if 'r_' in labels[i]:
                 labels[i] = labels[i]+r' [kpc]'
             if 'theta' in labels[i]:
-                labels[i] = labels[i]+' [rad]'
+                if theta_in_degr:
+                    labels[i] = labels[i]+' [deg]'
+                else:
+                    labels[i] = labels[i]+' [rad]'
+                
             if 'phi' in labels[i]:
-                labels[i] = labels[i]+' [rad]'
+                if phi_in_degr:
+                    labels[i] = labels[i]+' [deg]'
+                else:
+                    labels[i] = labels[i]+' [rad]'
     
     return labels
 
