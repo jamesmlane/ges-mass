@@ -19,7 +19,7 @@ import multiprocessing
 import dill as pickle
 import itertools
 import emcee
-import tqdm
+from tqdm.notebook import tqdm
 import warnings
 import scipy.optimize
 from scipy.stats import norm
@@ -1656,18 +1656,28 @@ class _HaloFit:
         
         if os.path.exists(samples_filename):
             self.samples = np.load(samples_filename)
+        else:
+            print('warning: samples file not found')
                 
         if os.path.exists(masses_filename):
             self.masses = np.load(masses_filename)
+        else:
+            print('warning: masses file not found')
             
         if os.path.exists(mass_inds_filename):
             self.mass_inds = np.load(mass_inds_filename)
+        else:
+            print('warning: mass_inds file not found')
             
         if os.path.exists(facs_filename):
             self.facs = np.load(facs_filename)
+        else:
+            print('warning: facs file not found')
         
         if os.path.exists(isofactors_filename):
             self.isofactors = np.load(isofactors_filename)
+        else:
+            print('warning: isofactors file not found')
             
         if os.path.exists(opt_init_filename):
             with open(opt_init_filename,'rb') as f:
@@ -1675,10 +1685,14 @@ class _HaloFit:
         elif os.path.exists(opt_filename):
             with open(opt_filename,'rb') as f:
                 self.opt_init = pickle.load(f)
+        else:
+            print('warning: opt_init file not found')
             
         if os.path.exists(opt_post_filename):
             with open(opt_post_filename,'rb') as f:
                 self.opt_post = pickle.load(f)
+        else:
+            print('warning: opt_post file not found')
                 
         # Also load the sampler if requested.
         if load_sampler:
@@ -2430,7 +2444,7 @@ class MockHaloFit(_HaloFit):
             selec_str = ''
         else:
             selec_str = self.selec+'/'
-        fit_data_dir  = fit_dir+'data/'+fit_type+'/'+selec_str+'feh_'+str(feh)
+        # fit_data_dir  = fit_dir+'data/'+fit_type+'/'+selec_str+'feh_'+str(feh)
         
         # Do directories
 
