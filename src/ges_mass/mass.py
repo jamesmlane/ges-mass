@@ -213,7 +213,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
     # Use maximum likelihood to find a starting point
     if MLE_init:
         print('Doing maximum likelihood to find starting point')
-        opt_fn = lambda x: pmass.mloglike(x, densfunc, effsel, Rgrid, phigrid, 
+        opt_fn = lambda x: mloglike(x, densfunc, effsel, Rgrid, phigrid, 
             zgrid, Rdata, phidata, zdata, usr_log_prior=usr_log_prior)
         opt = scipy.optimize.minimize(opt_fn, init, method=optimizer_method)
         if opt.success:
@@ -1647,7 +1647,7 @@ class _HaloFit:
         '''
         if usr_log_prior is None:
             usr_log_prior = self.usr_log_prior
-        return pmass.loglike(params, self.densfunc, self.get_fit_effsel(), 
+        return loglike(params, self.densfunc, self.get_fit_effsel(), 
                              self.Rgrid, self.phigrid, self.zgrid, 
                              self.Rdata, self.phidata, self.zdata, 
                              usr_log_prior)
@@ -1736,7 +1736,7 @@ class _HaloFit:
         if self.verbose:
             print('Doing maximum likelihood')
         effsel = self.get_fit_effsel()
-        opt_fn = lambda x: pmass.mloglike(x, self.densfunc, effsel, self.Rgrid, 
+        opt_fn = lambda x: mloglike(x, self.densfunc, effsel, self.Rgrid, 
             self.phigrid, self.zgrid, self.Rdata, self.phidata, self.zdata,
             usr_log_prior=self.usr_log_prior)
         opt = scipy.optimize.minimize(opt_fn, init, method=method, 
