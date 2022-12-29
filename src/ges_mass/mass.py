@@ -164,11 +164,10 @@ def fit(hf, nprocs=10, force_fit=False, mle_init=True, just_mle=False,
             pickle.dump(opt_post,f)
 
 
-def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
-             nit=250, ncut=100, usr_log_prior=None, MLE_init=True, 
-             just_MLE=False, return_walkers=False, convergence_n_tau=50,
-             convergence_delta_tau=0.01, optimizer_method='Nelder-Mead',
-             mcmc_diagnostic_filename=None):
+def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
+             nit, ncut, usr_log_prior, MLE_init, just_MLE, return_walkers, 
+             convergence_n_tau=50, convergence_delta_tau=0.01, 
+             optimizer_method='Powell', mcmc_diagnostic_filename=None):
     '''fit_dens:
     
     Fit a density profile to a set of data given an effective selection 
@@ -187,6 +186,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
             evaluated
         data (list or 3xN array) - List of R,phi,z coordinates for data
         init (array) - Initial parameters
+        nprocs (int) - Number of processors to use for multiprocessing
         nwalkers (int) - Number of MCMC walkers to use
         nit (int) - Number of iterations to sample with each walker
         ncut (int) - Number of samples to cut off the beginning of the chain 
@@ -198,6 +198,13 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
             walkers at init
         just_MLE (bool) - Only calculate the maximum likelihood estimate
         return_walkers (bool) - Return the walker instead of just the samples
+        convergence_n_tau (int) - Fraction of autocorrelation timescales to
+            walk before convergence is declared
+        convergence_delta_tau (float) - Fraction of change in autocorrelation
+            timescale to declare convergence
+        optimizer_method (str) - Method to use for optimization
+        mcmc_diagnostic_filename (str) - Filename to save MCMC diagnostics to
+        
         
     Returns:
         opt  () - 
@@ -286,7 +293,8 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
             max_nit_tau = np.max([nit_tau,max_nit_tau])
             
             # Record MCMC diagnostics
-            mcmc_diagnostic_txt = ('sampled '+str(i+1)+'\n'\
+            mcmc_diagnostic_txt = (
+                'sampled '+str(i+1)+'\n'\
                 'mean tau: '+str(mean_tau)+'\n'+\
                 'min nit/tau: '+str(nit_tau)+'\n'+\
                 '[min,max] delta tau: ['+\
@@ -305,7 +313,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
             
             # Check convergence
             converged = np.all(tau * convergence_n_tau < sampler.iteration)
-            converged &= np.all(np.abs(delta_tau) < 0.01)
+            converged &= np.all(np.abs(delta_tau) < convergence_delta_tau)
             if converged:
                 break
             
