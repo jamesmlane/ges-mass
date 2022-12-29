@@ -2300,6 +2300,10 @@ def check_hf_versions(densfunc,selec,feh_range,fit_type,fit_dir):
         versions (list) - List of version strings for given densfunc and 
             parameters
     '''
+    # Handle selec, assume it's a list, tuple, or array
+    if isinstance(selec,(list,tuple,np.ndarray)):
+        selec = selec[0]
+
     # Unpack [Fe/H]
     feh_min,feh_max = feh_range
     
