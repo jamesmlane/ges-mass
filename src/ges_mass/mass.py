@@ -767,7 +767,7 @@ def spherical_integration_grid(r_min,r_max,n_edge_r,n_edge_theta,n_edge_phi):
     return Rphizgrid,delta
 
 
-def fdisk_to_number_of_stars(hf,samples,nprocs=1):
+def fdisk_to_number_of_stars(hf,samples=None,nprocs=1):
     '''fdisk_to_number_of_stars:
     
     Convert fdisk to number of halo and disk stars in the sample
@@ -781,24 +781,35 @@ def fdisk_to_number_of_stars(hf,samples,nprocs=1):
         n_halo (int) - Number of halo stars
         n_disk (int) - Number of disk stars
     '''
+    if samples is None:
+        if hf.samples is None:
+            hf.get_results()
+            assert hf.samples is not None,\
+                'No samples in supplied HaloFit instance, tried get_results()'
+        samples = hf.samples
+
     samples = np.atleast_2d(samples)
     n_samples = samples.shape[0]
     n_star_halo = np.zeros(n_samples,dtype=int)
     n_star_disk = np.zeros(n_samples,dtype=int)
     
-    assert 'plusexpdisk' in hf.densfunc.__name__
+    assert 'plusexpdisk' in hf.densfunc.__name__,\
+        'densfunc must have disk contamination (plusexpdisk) to have fdisk'
     
     # Unpack min and max for [Fe/H], logg, effective selection function grid,
     # (kinematic) effective selection function
     feh_min, feh_max = hf.feh_range
     logg_min, logg_max = hf.logg_range
-    Rgrid,phigrid,zgrid = hf.get_effsel_grid()
+    Rgrid,phigrid,zgrid = hf.get_effsel_list()
     effsel = hf.get_fit_effsel()
     
+    hasEffVol = hasattr(hf,'effvol_halo') and hasattr(hf,'effvol_disk')
+    n_star = hf.n_star
+
     # Calculate the effective volume for both profiles
     for i in tqdm(range(n_samples)):
         dens_halo,dens_disk = hf.densfunc(Rgrid, phigrid, zgrid, 
-                                          params=samples[i], split=True)
+            params=samples[i], split=True)
         vol_halo = np.sum(dens_halo*effsel)
         vol_disk = np.sum(dens_disk*effsel)
         vol_tot = vol_halo+vol_disk
