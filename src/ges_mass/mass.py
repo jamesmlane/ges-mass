@@ -245,18 +245,24 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
     max_nit_tau = 0
     dvrgnt_nit_lim = int(2e4) # N to wait until checking divergence
     dvrgnt_tau_nit_fac = 0.5 # Factor of max(nit/tau) when divergence declared
-    first_return = True
     has_mcmc_diagnostic_file = False
     if isinstance(mcmc_diagnostic_filename,str):
         mcmc_diagnostic_file = open(mcmc_diagnostic_filename,'w')
         has_mcmc_diagnostic_file = True
     
     # Do MCMC
-    with multiprocessing.Pool(nprocs) as pool:
+    print('Running MCMC with '+str(nprocs)+' processers')
+    # with multiprocessing.Pool(nprocs) as pool:
+    with multiprocessing.Pool(processes=nprocs, 
+        initializer=_fit_dens_multiprocessing_init, initargs=(densfunc,
+            effsel, Rgrid, phigrid, zgrid, Rdata, phidata, zdata, 
+            usr_log_prior)) as pool:
         # Make sampler
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, pmass.loglike, 
-            args=(densfunc, effsel, Rgrid, phigrid, zgrid, Rdata, phidata, 
-                  zdata, usr_log_prior), pool=pool)
+        blob_dtype = [("effvol_halo", float), ("effvol_disk", float)]
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, loglike_mp, 
+            # args=(densfunc, effsel, Rgrid, phigrid, zgrid, Rdata, phidata, 
+            #       zdata, usr_log_prior), 
+            pool=pool, blobs_dtype=blob_dtype)
         
         # Draw samples
         print('Generating MCMC samples...')
@@ -338,6 +344,26 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers=100,
         else:
             return samples
 
+
+def _fit_dens_multiprocessing_init(_densfunc, _effsel, _Rgrid, _phigrid, _zgrid, 
+                                   _Rdata, _phidata, _zdata, _usr_log_prior):
+    '''_fit_dens_multiprocessing_init:
+
+    Initialize multiprocessing for fit_dens. See fit_dens for args (no 
+    underscores). Provides global variable access for multiprocessing.
+    '''
+    global densfunc, effsel, Rgrid, phigrid, zgrid, Rdata, phidata, zdata, \
+        usr_log_prior
+    densfunc = _densfunc
+    effsel = _effsel
+    Rgrid = _Rgrid
+    phigrid = _phigrid
+    zgrid = _zgrid
+    Rdata = _Rdata
+    phidata = _phidata
+    zdata = _zdata
+    usr_log_prior = _usr_log_prior
+    
 
 def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid, 
                               iso, feh_range, logg_range, jkmins, n_mass=400,
@@ -851,6 +877,67 @@ def xyzgrid(apo,distmods,):
 
 ### Model Likelihoods
 
+def mloglike_mp(params):
+    '''mloglike_mp:
+
+    Negative log-likelihood for the inhomogeneous Poisson point process. The 
+    multiprocessing version of the function for emcee.
+    
+    Args:
+        args (args) - Arguments to pass to loglike
+        kwargs (kwargs) - Keyword arguments to pass to loglike
+    
+    Returns:
+        mloglike (array) - Negative of the loglikelihood function
+    '''
+    res = loglike_mp(params)
+    return (-res[0],*res[1:])
+
+def loglike_mp(params): 
+    '''loglike_mp:
+    
+    log-likelihood for the inhomogeneous Poisson point process. Accounts for
+    the prior. The multiprocessing version of the function for emcee.
+    
+    Args:
+        params (list) - Density model parameters
+    
+    Returns:
+        log_posterior (array) - log of the likelihood + log of the prior
+    '''
+    global densfunc, effsel, Rgrid, phigrid, zgrid, Rdata, phidata, zdata, usr_log_prior
+
+    # Check for disk component
+    hasDisk = False
+    if 'plusexpdisk' in densfunc.__name__:
+        hasDisk = True
+    # Evaluate the domain of the prior
+    if not domain_prior(densfunc, params):
+        return -np.inf, 0., 0.
+    # Evaluate the user-supplied prior
+    if callable(usr_log_prior):
+        usrlogprior = usr_log_prior(densfunc,params)
+        if np.isneginf(usrlogprior):
+            return usrlogprior, 0., 0.
+    else:
+        usrlogprior = 0
+    # Evaluate the informative prior
+    logprior = log_prior(densfunc, params)
+    logdatadens = np.log(tdens(densfunc, Rdata, phidata, zdata, params=params))
+    # log effective volume
+    if hasDisk:
+        effvol_halo,effvol_disk = effvol(densfunc,effsel,Rgrid,phigrid,zgrid,
+            params=params,split=True)
+    else:
+        effvol_halo = effvol(densfunc,effsel,Rgrid,phigrid,zgrid,params=params)
+        effvol_disk = 0.
+    logeffvol = np.log(effvol_halo+effvol_disk)
+    # log likelihood
+    loglike = np.sum(logdatadens)-len(Rdata)*logeffvol
+    if not np.isfinite(loglike):
+        return -np.inf, effvol_halo, effvol_disk
+    logjointprob = logprior + usrlogprior + loglike
+    return logjointprob, effvol_halo, effvol_disk
 
 def mloglike(*args, **kwargs):
     '''mloglike:
