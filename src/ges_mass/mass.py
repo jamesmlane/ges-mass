@@ -952,8 +952,8 @@ def mloglike(*args, **kwargs):
     return -loglike(*args,**kwargs)
 
 
-def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, dataR, dataphi, 
-            dataz, usr_log_prior=None):
+def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, Rdata, phidata, 
+            zdata, usr_log_prior=None, return_effvol=False):
     '''loglike:
     
     log-likelihood for the inhomogeneous Poisson point process. Accounts for
@@ -966,40 +966,67 @@ def loglike(params, densfunc, effsel, Rgrid, phigrid, zgrid, dataR, dataphi,
         Rgrid (array) - Array of R positions for the effective selection function
         phigrid (array) - Array of phi positions for the effective selection function
         zgrid (array) - Array of z positions for the effective selection function
-        dataR (array) - data R positions
-        dataphi (array) - data phi positions
-        dataz (array) - data z positions
+        Rdata (array) - data R positions
+        phidata (array) - data phi positions
+        zdata (array) - data z positions
         usr_log_prior (callable) - Extra prior supplied by the user at runtime. 
             Included for flexibility so not all priors need to be hardcoded. 
             Call signature should be usr_log_prior(densfunc,params) and function 
             should return the log of the prior value. Will check for -np.inf 
-            and break out of the likelihood call if it is returned.
+            and break out of the likelihood call if it is returned. 
+            [default: None]
+        return_effvol (bool) - Return the effective volume of the halo and disk 
+            [default: False]
     
     Returns:
         log_posterior (array) - log of the likelihood + log of the prior
     '''
+    # Check for disk component
+    hasDisk = False
+    if 'plusexpdisk' in densfunc.__name__:
+        hasDisk = True
     # Evaluate the domain of the prior
     if not domain_prior(densfunc, params):
-        return -np.inf
+        if return_effvol:
+            return -np.inf, 0., 0.
+        else:
+            return -np.inf
     # Evaluate the user-supplied prior
     if callable(usr_log_prior):
         usrlogprior = usr_log_prior(densfunc,params)
         if np.isneginf(usrlogprior):
-            return usrlogprior
+            if return_effvol:
+                return usrlogprior, 0., 0.
+            else:
+                return usrlogprior
     else:
         usrlogprior = 0
     # Evaluate the informative prior
     logprior = log_prior(densfunc, params)
-    logdatadens = np.log(tdens(densfunc, dataR, dataphi, dataz, params=params))
-    logeffvol = np.log(effvol(densfunc,effsel,Rgrid,phigrid,zgrid,params=params))
-    #log likelihood
-    loglike = np.sum(logdatadens)-len(dataR)*logeffvol
+    logdatadens = np.log(tdens(densfunc, Rdata, phidata, zdata, params=params))
+    # log effective volume
+    if hasDisk:
+        effvol_halo,effvol_disk = effvol(densfunc,effsel,Rgrid,phigrid,zgrid,
+            params=params,split=True)
+    else:
+        effvol_halo = effvol(densfunc,effsel,Rgrid,phigrid,zgrid,params=params)
+        effvol_disk = 0.
+    logeffvol = np.log(effvol_halo+effvol_disk)
+    # log likelihood
+    loglike = np.sum(logdatadens)-len(Rdata)*logeffvol
     if not np.isfinite(loglike):
-        return -np.inf
-    return logprior + usrlogprior + loglike
+        if return_effvol:
+            return -np.inf, effvol_halo, effvol_disk
+        else:
+            return -np.inf
+    logjointprob = logprior + usrlogprior + loglike
+    if return_effvol:
+        return logjointprob, effvol_halo, effvol_disk
+    else:
+        return logjointprob
 
 
-def effvol(densfunc, effsel, Rgrid, phigrid, zgrid, params=None):
+def effvol(densfunc, effsel, Rgrid, phigrid, zgrid, params=None, split=False):
     '''effvol:
     
     Returns the effective volume given a density function, an effective
@@ -1012,18 +1039,28 @@ def effvol(densfunc, effsel, Rgrid, phigrid, zgrid, params=None):
         phigrid (array) - Array of phi positions
         zgrid (array) - Array of z positions
         params (list) - Density model parameters
+        split (bool) - Return the effective volume for the halo and disk 
+            components separately
     
     Returns:
         effvol (array) - The effective volume 
     '''
-    if params is None:
-        effdens = tdens(densfunc,Rgrid,phigrid,zgrid)
+    if split:
+        if params is None:
+            effdens = tdens(densfunc,Rgrid,phigrid,zgrid,split=split)
+        else:
+            effdens = tdens(densfunc,Rgrid,phigrid,zgrid,params=params,
+                split=split)
+        return np.sum(effdens[0]*effsel), np.sum(effdens[1]*effsel)
     else:
-        effdens = tdens(densfunc,Rgrid,phigrid,zgrid,params=params)
-    return np.sum(effdens*effsel)
+        if params is None:
+            effdens = tdens(densfunc,Rgrid,phigrid,zgrid)
+        else:
+            effdens = tdens(densfunc,Rgrid,phigrid,zgrid,params=params)
+        return np.sum(effdens*effsel)
 
 
-def tdens(densfunc, Rgrid, phigrid, zgrid, params=None):
+def tdens(densfunc, Rgrid, phigrid, zgrid, params=None, split=False):
     '''tdens:
     
     Deterine the densities at the locations corresponding to a supplied grid
@@ -1035,15 +1072,22 @@ def tdens(densfunc, Rgrid, phigrid, zgrid, params=None):
         phigrid (array) - Array of phi positions
         zgrid (array) - Array of z positions
         params (list) - Density model parameters
+        split (bool) - split the density function into two parts
     
     Returns:
         dens (array) - Densities corresponding to supplied positions and density
             function
     '''
     if params is None:
-        dens = densfunc(Rgrid,phigrid,zgrid)
+        if split:
+            dens = densfunc(Rgrid,phigrid,zgrid,split=split)
+        else:
+            dens = densfunc(Rgrid,phigrid,zgrid)
     else:
-        dens = densfunc(Rgrid,phigrid,zgrid,params=params)
+        if split:
+            dens = densfunc(Rgrid,phigrid,zgrid,params=params,split=split)
+        else:
+            dens = densfunc(Rgrid,phigrid,zgrid,params=params)
     return dens
 
 
