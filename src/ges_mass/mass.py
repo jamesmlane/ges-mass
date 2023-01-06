@@ -1509,7 +1509,7 @@ class _HaloFit:
             self.int_r_range = [2.,70.]
             print('int_r_range not specified, using default of [2.,70.]')
         else:
-        self.int_r_range = int_r_range
+            self.int_r_range = int_r_range
         
         # Isochrone (since iso is large it can be dynamically loaded so that 
         # pickled HaloFit classes don't carry a redundant object).
@@ -1538,7 +1538,7 @@ class _HaloFit:
         
         # Version
         if version is None:
-            versions = ''
+            version = ''
         elif version != '':
             if version[-1] != '/': version+='/'
         self.version = version
@@ -2178,7 +2178,8 @@ class HaloFit(_HaloFit):
             self.obs_mask = obs_mask
             orbs_obs = orbs[obs_mask]
             allstar_obs = allstar[obs_mask] 
-            
+        
+        # Set data properties
         mrpz = np.array([orbs_obs.R(use_physical=True).value,
                          orbs_obs.phi(use_physical=True).value,
                          orbs_obs.z(use_physical=True).value]).T
@@ -2223,7 +2224,7 @@ class HaloFit(_HaloFit):
         maximum likelihood set of parameters of the source densprofile. 
         init_type can be:
         'ML' - Use the maximum likelihood samples from the source densfunc
-        'uninformed' - Just use default init
+        'uninformed' - Just use default init 
         
         Args:
             init_type (string) - Type of init to load. 'ML' for maximum 
@@ -2296,7 +2297,7 @@ class HaloFit(_HaloFit):
     def set_densfunc(self,densfunc,init=None,init_type=None,usr_log_prior=None):
         '''set_densfunc:
         
-        Set a new densfunc for the class
+        Set a new densfunc for the class rather than re-initializing the class.
         
         Args:
             densfunc (callable) - Density profile
@@ -2372,6 +2373,8 @@ class MockHaloFit(_HaloFit):
                  int_r_range=None,
                  iso=None,
                  iso_filename=None,
+                 iso_feh=None,
+                 iso_age=None,
                  jkmins=None,
                  feh_range=None,
                  logg_range=None,
@@ -2441,16 +2444,89 @@ class MockHaloFit(_HaloFit):
             fit_type = ''
         self.fit_type = fit_type
         if 'ksf' in self.fit_type:
-            assert self.selec is not None
+            assert self.selec is not None, 'selec is required for mock+ksf fits'
         
+        # Single isochrone properties for mock
+        self.iso_feh = iso_feh
+        if not (iso_feh < self.feh_max and iso_feh > self.feh_min):
+            raise ValueError('iso_feh should be within feh_range')
+        self.iso_age = iso_age
+
         # Output directories
-        if 'mock' in fit_type:
+        if 'ksf' not in fit_type:
             selec_str = ''
         else:
             selec_str = self.selec+'/'
-        # fit_data_dir  = fit_dir+'data/'+fit_type+'/'+selec_str+'feh_'+str(feh)
+        fit_data_dir  = fit_dir+'data/'+fit_type+'/'+selec_str+'feh_'+\
+            str(iso_feh)+'/'+densfunc.__name__+'/'+self.version
+        fit_fig_dir  = fit_dir+'fig/'+fit_type+'/'+selec_str+'feh_'+\
+            str(iso_feh)+'/'+densfunc.__name__+'/'+self.version
+        if not os.path.exists(fit_data_dir):
+            os.makedirs(fit_data_dir,exist_ok=True)
+        if not os.path.exists(fit_fig_dir):
+            os.makedirs(fit_fig_dir,exist_ok=True)
+        self.fit_data_dir = fit_data_dir
+        self.fit_fig_dir = fit_fig_dir
+
+        # Get the kinematic effective selection function
+        if 'ksf' in fit_type:
+            ksel = self.get_ksel(spline_type='linear',mask=True)
+            keffsel = effsel*ksel
+            assert np.all( ~np.all(keffsel < 1e-9, axis=1) ),\
+                'Null fields still in keffSF'
+            self.keffsel = keffsel
+        else:
+            self.keffsel = None
         
-        # Do directories
+        # Do kinematic masking? Or expect it to be done already?
+
+        # Observational masking (should be redundant)
+        obs_mask = (allstar['LOGG'] > self.logg_min) &\
+                   (allstar['LOGG'] < self.logg_max)
+        self.obs_mask = obs_mask
+        orbs_obs = orbs[obs_mask]
+        allstar_obs = allstar[obs_mask]
+        
+        # Set data properties
+        mrpz = np.array([orbs_obs.R(use_physical=True).value,
+                         orbs_obs.phi(use_physical=True).value,
+                         orbs_obs.z(use_physical=True).value]).T
+        Rdata,phidata,zdata = mrpz.T
+        self.orbs = orbs_obs
+        self.allstar = allstar_obs
+        self.Rdata = Rdata
+        self.phidata = phidata
+        self.zdata = zdata
+        self.n_star = len(orbs_obs)
+
+        # Initialization
+        if init_type is not None:
+            print('Non-default init_type not supported for MockHaloFit, setting'
+                ' init_type=None')
+            init_type = None
+        self.init_type = init_type
+        if init is None:
+            if init_type is None:
+                if verbose:
+                    print('Using default init')
+                init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
+            # else:
+            #     if verbose:
+            #         print('Using informed init')
+            #     init = self.get_densfunc_mcmc_init_informed(init_type=init_type,
+            #         verbose=verbose)
+        self.init = init
+            
+
+    def get_fit_effsel(self):
+        '''get_fit_effsel:
+        
+        Get the proper effective selection function for the fit
+        '''
+        if self.fit_type in ['mock+ksf']:
+            return self.keffsel
+        elif self.fit_type in ['mock','mock+disk']:
+            return self.effsel
 
 
 # Null prior for class
