@@ -1505,6 +1505,10 @@ class _HaloFit:
         if n_mass is None:
             n_mass = int(nwalkers*(nit-ncut))
         self.n_mass = n_mass
+        if int_r_range is None:
+            self.int_r_range = [2.,70.]
+            print('int_r_range not specified, using default of [2.,70.]')
+        else:
         self.int_r_range = int_r_range
         
         # Isochrone (since iso is large it can be dynamically loaded so that 
