@@ -25,6 +25,7 @@ import scipy.optimize
 from scipy.stats import norm
 from isodist import FEH2Z, Z2FEH
 from galpy.util import coords
+from astropy import units as apu
 from . import densprofiles as pdens
 from . import util as putil
 from . import iso as piso
@@ -773,6 +774,33 @@ def spherical_integration_grid(r_min,r_max,n_edge_r,n_edge_theta,n_edge_phi):
     Rphizgrid = coords.rect_to_cyl(xyzgrid[:,0], xyzgrid[:,1], xyzgrid[:,2])
     Rphizgrid = np.dstack([Rphizgrid[0],Rphizgrid[1],Rphizgrid[2]])[0]
     return Rphizgrid,delta
+
+
+def double_exponential_disk_cylindrical_mass(hR,hz,Rmin,Rmax,zmax,A=1.):
+    '''double_exponential_disk_cylindrical_mass:
+
+    Calculate the mass of a double exponential disk in cylindrical coordinates.
+    Assume zmin=0 and that the vertical integration is symmetric about z=0.
+    Arguments can be astropy quantities.
+
+    Args:
+        hR (float) - Scale length of the disk in cylindrical R
+        hz (float) - Scale length of the disk in cylindrical z
+
+    '''
+    if isinstance(hR,apu.quantity.Quantity):
+        hR = hR.to(apu.kpc).value
+    if isinstance(hz,apu.quantity.Quantity):
+        hz = hz.to(apu.kpc).value
+    if isinstance(Rmin,apu.quantity.Quantity):
+        Rmin = Rmin.to(apu.kpc).value
+    if isinstance(Rmax,apu.quantity.Quantity):
+        Rmax = Rmax.to(apu.kpc).value
+    if isinstance(zmax,apu.quantity.Quantity):
+        zmax = zmax.to(apu.kpc).value
+    m = 4*np.pi*hR*hz*(np.exp(-Rmin/hR)*(Rmin+hR)-np.exp(-Rmax/hR)*(Rmax+hR))*\
+        (1-np.exp(-zmax/hz))
+    return A*m
 
 
 def fdisk_to_number_of_stars(hf,samples=None,nprocs=1):
