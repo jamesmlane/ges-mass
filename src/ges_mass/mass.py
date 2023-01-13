@@ -2611,6 +2611,134 @@ def check_hf_versions(densfunc,selec,feh_range,fit_type,fit_dir):
     except FileNotFoundError:
         print('warning: path does not exist, path: '+str(fit_data_dir))
 
+
+def fraction_stars_for_fdisk_from_halo_disk_mocks(fdisk_targ, halo_densfunc, 
+    halo_params, halo_mass, disk_densfunc, disk_params, disk_mass, r_range_halo, 
+    R_range_disk, z_max_disk, ro, zo, mass_from_density_samples_kwargs={}):
+    '''fraction_stars_for_fdisk_from_halo_disk_mocks:
+
+    Use the halo and disk mocks to determine the fraction of stars from the 
+    disk mock that corresponds to a target fdisk:
+
+    Args:
+        fdisk_targ (float): Target value of fdisk, should be in range [0,1]
+        halo_densfunc (function): Density function for the halo mock. Should be 
+            from src/ges_mass/densprofiles.py
+        halo_params (array): Parameters for the halo mock
+        halo_mass (float): Mass of the halo mock, can be astropy unit
+        disk_densfunc (function): Density function for the disk mock, should be
+            exponential disk from src/ges_mass/densprofiles.py
+        disk_params (array): Parameters for the disk mock, should be inverse
+            scale length and inverse scale height. Can be astropy units
+        disk_mass (float): Mass of the disk mock, can be astropy unit
+        r_range_halo (array): Minimum and maximum radii for the halo mock, 
+            can be astropy units
+        R_range_disk (array): Minimum and maximum radii for the disk mock,
+            can be astropy units
+        z_max_disk (float): Maximum height for the disk mock, can be astropy
+            unit
+        ro (float): Solar cylindrical radius, equiv. to galpy ro
+        zo (float): Solar cylindrical height above plane, equiv. to galpy zo
+        mass_from_density_samples_kwargs (dict): Keyword arguments for
+            mass_from_density_samples function. If none supplied then will be 
+            filled with appropriate trivial defaults.
+        
+    Returns:
+        Adisk (float): Factor to scale the density of the disk potential by
+            to get the desired fdisk. In practice take int(Adisk*n_disk_star)
+            stars from the disk mock and add them to the halo mock in order to 
+            get the desired fdisk.
+    '''
+    # Defualts for mass_from_density_samples_kwargs. Need to be trivial so 
+    # mass comes out properly
+    if 'n_star' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['n_star'] = 1
+    if 'effsel' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['effsel'] = np.array([1.])
+    if 'effsel_grid' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['effsel_grid'] = [ro,0.,zo]
+    if 'iso' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['iso'] = 1.
+    if 'feh_range' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['feh_range'] = [0.,0.]
+    if 'logg_range' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['logg_range'] = [0.,0.]
+    if 'jkmins' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['jkmins'] = [0.,0.]
+    if 'n_mass' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['n_mass'] = 1
+    if 'mass_analytic' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['mass_analytic'] = False
+    if 'nprocs' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['nprocs'] = None
+    if 'batch' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['batch'] = False
+    if '_isofactors' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['_isofactors'] = 1.
+    
+    # Unpack arrays
+    r_min_halo, r_max_halo = r_range_halo
+    R_min_disk, R_max_disk = R_range_disk
+    ihR, ihz = disk_params
+
+    # Handle astropy units
+    if isinstance(halo_mass,apu.quantity.Quantity):
+        halo_mass = halo_mass.to(apu.M_sun).value
+    if isinstance(disk_mass,apu.quantity.Quantity):
+        disk_mass = disk_mass.to(apu.M_sun).value
+    if isinstance(r_min_halo,apu.quantity.Quantity):
+        r_min_halo = r_min_halo.to(apu.kpc).value
+    if isinstance(r_max_halo,apu.quantity.Quantity):
+        r_max_halo = r_max_halo.to(apu.kpc).value
+    if isinstance(R_min_disk,apu.quantity.Quantity):
+        R_min_disk = R_min_disk.to(apu.kpc).value
+    if isinstance(R_max_disk,apu.quantity.Quantity):
+        R_max_disk = R_max_disk.to(apu.kpc).value
+    if isinstance(z_max_disk,apu.quantity.Quantity):
+        z_max_disk = z_max_disk.to(apu.kpc).value
+    if isinstance(ihR,apu.quantity.Quantity):
+        ihR = ihR.to(1/apu.kpc).value
+    if isinstance(ihz,apu.quantity.Quantity):
+        ihz = ihz.to(1/apu.kpc).value
+    
+    # Repack disk parameters
+    disk_params = [ihR,ihz]
+
+    # Ensure int_r_range set correctly
+    if 'int_r_range' not in mass_from_density_samples_kwargs.keys():
+        mass_from_density_samples_kwargs['int_r_range'] = [r_min_halo,r_max_halo]
+    else:
+        assert mass_from_density_samples_kwargs['int_r_range'][0] == r_min_halo
+        assert mass_from_density_samples_kwargs['int_r_range'][1] == r_max_halo
+
+    # mass from density samples expects 2d list of parameters
+    halo_samples = np.atleast_2d(halo_params)
+
+    # Normalize the density profiles to their masses so that the fdisk factors 
+    # are calculated correctly
+    print('Calculating masses to normalize mock density profiles')
+    _halo_mass = mass_from_density_samples(halo_samples, halo_densfunc, 
+        **mass_from_density_samples_kwargs)[0]
+    _amp_halo = halo_mass/_halo_mass
+    _disk_mass = double_exponential_disk_cylindrical_mass(1/ihR,1/ihz,
+        R_min_disk, R_max_disk, z_max_disk)
+    _amp_disk_mass = disk_mass/_disk_mass
+    _exp_disk = lambda R,z,hR,hz: np.exp(-R/hR)*np.exp(-np.abs(z)/hz)
+    _amp_disk_sol = _exp_disk(ro,zo,1/ihR,1/ihz)
+    _amp_disk = _amp_disk_mass*_amp_disk_sol
+
+    # Density at the solar position
+    disk_dens_sol = float(disk_densfunc(ro,0,zo,disk_params)*_amp_disk)
+    halo_dens_sol = float(halo_densfunc(ro,0,zo,halo_params)*_amp_halo)
+    # fdisk = disk_dens/(disk_dens+halo_dens)
+    # print('Current fdisk at solar position '+str(fdisk))
+
+    # Determine the factor needed to scale the disk distribution by to get
+    # The appropriate fdisk
+    Adisk = fdisk_targ*halo_dens_sol/(disk_dens_sol*(1-fdisk_targ))
+    return Adisk
+
+
 def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
     selection_version=None, hf_kwargs={}, ro=None, vo=None, zo=None,
     disk_mock_path=None, fdisk=None, fdisk_calc_kwargs={}):
