@@ -379,7 +379,8 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                               mass_int_type='spherical_grid', 
                               mass_analytic=False, int_r_range=[2.,70.], 
                               n_edge=[500,100,100], nprocs=None, batch=False, 
-                              ro=_ro, zo=_zo, seed=0, verbose=True):
+                              ro=_ro, zo=_zo, seed=0, verbose=True, 
+                              _isofactors=None):
     '''mass_from_density_samples:
     
     Calculate the mass corresponding to a series of samples representing the 
@@ -413,6 +414,8 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
         ro,vo,zo (float) - Galpy normalization parameters. ro used for 
             Sun-GC distance, zo used for height above galactic plane.
         seed (int) - Random seed for numpy [default 0]
+        verbose (bool) - Be verbose?
+        _isofactors ()
         
     Returns:
         masses (array) - Array of length n_mass of mass samples
@@ -438,6 +441,14 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
         print('Calculating isochrone factors')
     
     _fast_isofactors = True
+    if _isofactors is not None:
+        if verbose:
+            print('Warning: hard-setting isofactors')
+        if isinstance(_isofactors,(list,tuple,np.ndarray)):
+            isofactors = np.array(_isofactors)
+        else:
+            isofactors[:] = _isofactors
+    else:
     if _fast_isofactors:
         unique_jkmin = np.unique(jkmins)
         if verbose:
@@ -449,7 +460,8 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                                 (Z2FEH(iso['Zini']) < feh_range[1]) &\
                                 (iso['logAge'] >= 10) &\
                                 (iso['logL'] > -9) # Eliminates WDs
-            # The average mass mask extracts fitted sample based on color and logg
+                # The average mass mask extracts fitted sample based on color 
+                # and logg
             avmass_isomask = massratio_isomask &\
                              (iso['Jmag']-iso['Ksmag'] > unique_jkmin[i]) &\
                              (iso['logg'] > logg_range[0]) &\
@@ -468,7 +480,8 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                                 (Z2FEH(iso['Zini']) < feh_range[1]) &\
                                 (iso['logAge'] >= 10) &\
                                 (iso['logL'] > -9) # Eliminates WDs
-            # The average mass mask extracts fitted sample based on color and logg
+                # The average mass mask extracts fitted sample based on color 
+                # and logg
             avmass_isomask = massratio_isomask &\
                              (iso['Jmag']-iso['Ksmag'] > jkmins[i]) &\
                              (iso['logg'] > logg_range[0]) &\
