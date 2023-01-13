@@ -1093,7 +1093,8 @@ def orbit_kinematics_from_df_samples(orbs,dfs,mixture_arr=None,ro=None,vo=None):
     
     return orbs_out
 
-def kinematic_selection_mask(orbs,eELzs,accs,selection=None,space=None,phi0=0.):
+def kinematic_selection_mask(orbs,eELzs,accs,selection=None,space=None,
+    selection_version=None,phi0=0.):
     '''kinematic_selection_mask:
     
     Make a mask based on a kinematic selection. Can supply string to 
@@ -1110,6 +1111,8 @@ def kinematic_selection_mask(orbs,eELzs,accs,selection=None,space=None,phi0=0.):
         accs (array) - actions array of shape (3,N), jR, Lz, jz
         selection (dict) - selection dictionary, see above
         space (str) - Kinematic space to use Lane+2022 selection
+        selection_version (str) - Selection keyword to supply to 
+            putil.lane2022_kinematic_selections to get selection dictionary
         phi0 (float) - potential at infinity
     
     Returns:
@@ -1122,15 +1125,10 @@ def kinematic_selection_mask(orbs,eELzs,accs,selection=None,space=None,phi0=0.):
         # Assume one space in selection
         space = list(selection.keys())[0]
     else:
-        # Lane+ 2022
-        selection = {'vRvT':   [ ['ellipse', [290,0], [110,35]], 
-                                 ['ellipse', [-290,0], [110,35]] ],
-                     'Toomre': [ ['ellipse', [0,300], [35,120]], ],
-                     'ELz':    [ ['ellipse', [0,-1], [300,0.5]], ],
-                     'JRLz':   [ ['ellipse', [0,45], [300,20]], ],
-                     'eLz':    [ ['ellipse', [0,1], [500,0.025]], ],
-                     'AD':     [ ['ellipse', [0,-1], [0.08,0.3]], ]
-                     }    
+        if not selection_version:
+            selection_version = 'current'
+            print('selection_version not supplied, defaulting to "current"')
+        selection = lane2022_kinematic_selections(version=selection_version)
     
     xs,ys = pplot.get_plottable_data( [orbs,], [eELzs,], 
         [accs,], np.array([1,]), space, phi0=phi0, 
