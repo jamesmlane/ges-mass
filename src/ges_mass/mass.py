@@ -2610,3 +2610,127 @@ def check_hf_versions(densfunc,selec,feh_range,fit_type,fit_dir):
         print(res)
     except FileNotFoundError:
         print('warning: path does not exist, path: '+str(fit_data_dir))
+
+def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
+    selection_version=None, hf_kwargs={}, ro=None, vo=None, zo=None,
+    disk_mock_path=None, fdisk=None, fdisk_calc_kwargs={}):
+    '''mock_to_hf:
+
+    Use a mock to generate a HaloFit instance. Kinematics are calculated 
+    according to the galpy distribution functions in dfs and the mixture
+    weights. Actions and eccentricities are calculated using Staeckel, and 
+    the data is masked.
+
+    Args:
+        mock_path (str) - Path to mock
+        dfs (list) - List of galpy distribution function objects
+        mixture_arr (np.ndarray) - Array of distribution function mixture 
+            weights, shape (len(dfs)), sum(mixture_arr) = 1
+        aAS (galpy actionAngleStaeckel object) - ActionAngleStaeckel object for 
+            eccentricity and action calculation
+        pot (galpy potential object) - Potential object for eccentricity and
+            action calculation
+        selection (str) - selection keyword for putil.kinematic_selection_mask()
+        space (str) - space keyword for putil.kinematic_selection_mask()
+        selection_version (str) - selection_version keyword for 
+            putil.kinematic_selection_mask()
+        hf_kwargs (dict) - Dictionary of keyword arguments for MockHaloFit
+            class instantiation
+        ro (float) - Distance to Sun, same as galpy ro
+        vo (float) - galpy vo
+        zo (float) - Height of Sun above plane, same as galpy zo
+        disk_mock_path (str) - Path to disk mock, must be provided if fit_type
+            is 'mock+disk'
+        fdisk (float) - Requested fdisk, must be provided if fit_type is
+            'mock+disk'
+        fdisk_calc_kwargs (dict) - Dictionary of keywords arguments for 
+            fraction_stars_for_fdisk_from_halo_disk_mocks function
+        
+
+    Returns:
+        hf (HaloFit) - HaloFit instance
+    '''
+    # Handle ro,vo,zo
+    if ro is None:
+        if 'ro' in hf_kwargs.keys():
+            ro = hf_kwargs['ro']
+        else:
+            raise AttributeError
+    if vo is None:
+        if 'vo' in hf_kwargs.keys():
+            vo = hf_kwargs['vo']
+        else:
+            raise AttributeError
+    if zo is None:
+        raise AttributeError
+
+    # Get the type of fit
+    fit_type = hf_kwargs['fit_type']
+    assert fit_type in ['mock','mock+ksf','mock+disk']
+
+    # Load the mock
+    orbs_filename = mock_path+'/orbs.pkl'
+    allstar_filename = mock_path+'/allstar.npy'
+    data_omask_filename = mock_path+'/omask.npy'
+    with open(orbs_filename,'rb') as f:
+        orbs_nomask = pickle.load(f)
+    orbs_nomask.turn_physical_on(ro=ro,vo=vo)
+    allstar_nomask = np.load(allstar_filename)
+    data_mask = np.load(data_omask_filename)
+
+    # Mask the mock data
+    orbs = orbs_nomask[data_mask]
+    allstar = allstar_nomask[data_mask]
+
+    # Only do kinematics if required
+    if 'ksf' in fit_type:
+        # Calculate kinematics
+        orbs = putil.orbit_kinematics_from_df_samples(orbs,dfs,mixture_arr)
+        _,eELzs,accs,_ = putil.calculate_accs_eELzs_orbextr_Staeckel(orbs,pot=pot,
+            aAS=aAS)
+        # Create mask based on kinematics
+        kmask = putil.kinematic_selection_mask(orbs,eELzs,accs,selection=selection,
+            space=space,selection_version=selection_version)
+    
+    if 'disk' in fit_type:
+
+        # Load the disk mock
+        disk_orbs_filename = disk_mock_path+'/orbs.pkl'
+        disk_allstar_filename = disk_mock_path+'/allstar.npy'
+        disk_data_omask_filename = disk_mock_path+'/omask.npy'
+        with open(disk_orbs_filename,'rb') as f:
+            disk_orbs_nomask = pickle.load(f)
+        disk_orbs_nomask.turn_physical_on(ro=ro,vo=vo)
+        disk_allstar_nomask = np.load(disk_allstar_filename)
+        disk_data_mask = np.load(disk_data_omask_filename)
+        
+        # Mask the disk mock data
+        disk_orbs = disk_orbs_nomask[disk_data_mask]
+        disk_allstar = disk_allstar_nomask[disk_data_mask]
+
+        # Calculate how many disk stars to take for correct fdisk
+        Adisk = fraction_stars_for_fdisk_from_halo_disk_mocks(
+            fdisk_targ=fdisk,
+            **fdisk_calc_kwargs
+        )
+        n_disk_contaminant = round(len(disk_orbs)/Adisk)
+        rnp = np.random.default_rng()
+        disk_contam_indx = rnp.choice(np.arange(0,len(disk_orbs),dtype=int), 
+                                size=n_disk_contaminant, replace=False)
+        disk_orbs_contam = disk_orbs[disk_contam_indx]
+        disk_allstar_contam = disk_allstar[disk_contam_indx]
+
+    # Create the HaloFit object depending on fit_type
+    if fit_type == 'mock':
+        hf = MockHaloFit(orbs,allstar,**hf_kwargs)
+    elif fit_type == 'mock+ksf':
+        orbs_kmask = orbs[kmask]
+        allstar_kmask = allstar[kmask]
+        hf = MockHaloFit(orbs_kmask,allstar_kmask,**hf_kwargs)
+    else:
+        # First must calculate the disk contamination
+        orbs_disk_all = putil.join_orbs([orbs,disk_orbs_contam])
+        # allstar_disk_all
+        hf = MockHaloFit(orbs_disk_all, allstar_disk_all, **hf_kwargs)
+    
+    return hf
