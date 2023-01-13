@@ -1205,8 +1205,8 @@ def exp_disk(R,phi,z,params=[1/2.,1/0.8]):
     Args:
         R, phi, z (np.arrays) - Galactocentric cylindrical coordinates
         params (float array) - [1/hr,1/hz]
-            1/hr (float) - Inverse radial scale
-            1/hz (float) - Inverse vertical scale
+            1/hr (float) - Radial scale
+            1/hz (float) - Vertical scale
     
     Returns:
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
