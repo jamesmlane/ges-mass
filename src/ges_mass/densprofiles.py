@@ -9,9 +9,7 @@
 ### Imports
 
 import numpy as np
-from galpy.util import bovy_coords, _rotate_to_arbitrary_vector
-from scipy.optimize import newton
-from scipy.special import erfinv
+from galpy.util import _rotate_to_arbitrary_vector
 import warnings
 
 # Scales
