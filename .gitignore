@@ -27,6 +27,7 @@ scripts/fit_mass/
 # Other
 scratch/
 src/ges_mass/*mackereth.py
+writing/
 
 # VSCode stuff
 .vscode/
