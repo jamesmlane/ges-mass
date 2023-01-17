@@ -449,48 +449,48 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
         else:
             isofactors[:] = _isofactors
     else:
-    if _fast_isofactors:
-        unique_jkmin = np.unique(jkmins)
-        if verbose:
-            print('Doing fast isochrone factor calculation')
-            print('Unique (J-K) minimum values: '+str(unique_jkmin))
-        for i in range(len(unique_jkmin)):
-            # The mass ratio mask is for all stars considered 
-            massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
-                                (Z2FEH(iso['Zini']) < feh_range[1]) &\
-                                (iso['logAge'] >= 10) &\
-                                (iso['logL'] > -9) # Eliminates WDs
+        if _fast_isofactors:
+            unique_jkmin = np.unique(jkmins)
+            if verbose:
+                print('Doing fast isochrone factor calculation')
+                print('Unique (J-K) minimum values: '+str(unique_jkmin))
+            for i in range(len(unique_jkmin)):
+                # The mass ratio mask is for all stars considered 
+                massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
+                                    (Z2FEH(iso['Zini']) < feh_range[1]) &\
+                                    (iso['logAge'] >= 10) &\
+                                    (iso['logL'] > -9) # Eliminates WDs
                 # The average mass mask extracts fitted sample based on color 
                 # and logg
-            avmass_isomask = massratio_isomask &\
-                             (iso['Jmag']-iso['Ksmag'] > unique_jkmin[i]) &\
-                             (iso['logg'] > logg_range[0]) &\
-                             (iso['logg'] < logg_range[1])
-            massratio = piso.mass_ratio(iso[massratio_isomask], 
-                                        logg_range=logg_range,
-                                        jk_range=[unique_jkmin[i],999.])
-            avmass = piso.average_mass(iso[avmass_isomask])
-            jkmin_mask = jkmins == unique_jkmin[i]
-            isofactors[jkmin_mask] = avmass/massratio
-    else:
-        print('Doing slow isochrone factor calculation')
-        for i in range(nfield):
-            # The mass ratio mask is for all stars considered 
-            massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
-                                (Z2FEH(iso['Zini']) < feh_range[1]) &\
-                                (iso['logAge'] >= 10) &\
-                                (iso['logL'] > -9) # Eliminates WDs
+                avmass_isomask = massratio_isomask &\
+                                (iso['Jmag']-iso['Ksmag'] > unique_jkmin[i]) &\
+                                (iso['logg'] > logg_range[0]) &\
+                                (iso['logg'] < logg_range[1])
+                massratio = piso.mass_ratio(iso[massratio_isomask], 
+                                            logg_range=logg_range,
+                                            jk_range=[unique_jkmin[i],999.])
+                avmass = piso.average_mass(iso[avmass_isomask])
+                jkmin_mask = jkmins == unique_jkmin[i]
+                isofactors[jkmin_mask] = avmass/massratio
+        else:
+            print('Doing slow isochrone factor calculation')
+            for i in range(nfield):
+                # The mass ratio mask is for all stars considered 
+                massratio_isomask = (Z2FEH(iso['Zini']) > feh_range[0]) &\
+                                    (Z2FEH(iso['Zini']) < feh_range[1]) &\
+                                    (iso['logAge'] >= 10) &\
+                                    (iso['logL'] > -9) # Eliminates WDs
                 # The average mass mask extracts fitted sample based on color 
                 # and logg
-            avmass_isomask = massratio_isomask &\
-                             (iso['Jmag']-iso['Ksmag'] > jkmins[i]) &\
-                             (iso['logg'] > logg_range[0]) &\
-                             (iso['logg'] < logg_range[1])
-            massratio = piso.mass_ratio(iso[massratio_isomask], 
-                                        logg_range=logg_range,
-                                        jk_range=[jkmins[i],999.])
-            avmass = piso.average_mass(iso[avmass_isomask])
-            isofactors[i] = avmass/massratio
+                avmass_isomask = massratio_isomask &\
+                                (iso['Jmag']-iso['Ksmag'] > jkmins[i]) &\
+                                (iso['logg'] > logg_range[0]) &\
+                                (iso['logg'] < logg_range[1])
+                massratio = piso.mass_ratio(iso[massratio_isomask], 
+                                            logg_range=logg_range,
+                                            jk_range=[jkmins[i],999.])
+                avmass = piso.average_mass(iso[avmass_isomask])
+                isofactors[i] = avmass/massratio
             
     if verbose:
         print(np.unique(isofactors))
