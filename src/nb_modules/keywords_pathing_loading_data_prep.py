@@ -28,3 +28,8 @@ fit_stuff,other_stuff = putil.prepare_fitting(fit_filenames,
 apogee_effSF_mask,dmap,iso_grid,jkmins,dmods,ds,effsel_grid,apof,\
     allstar_nomask,orbs_nomask = fit_stuff
 Rgrid,phigrid,zgrid = effsel_grid
+
+# ## Load the distribution functions
+# df_filename = df_dir+'dfs.pkl'
+# betas = [0.3,0.8]
+# dfs = putil.load_distribution_functions(df_filename, betas)
