@@ -2741,7 +2741,7 @@ def fraction_stars_for_fdisk_from_halo_disk_mocks(fdisk_targ, halo_densfunc,
 
 def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
     selection_version=None, hf_kwargs={}, ro=None, vo=None, zo=None,
-    disk_mock_path=None, fdisk=None, fdisk_calc_kwargs={}):
+    disk_mock_path=None, fdisk=None, fdisk_seed=None, fdisk_calc_kwargs={}):
     '''mock_to_hf:
 
     Use a mock to generate a HaloFit instance. Kinematics are calculated 
@@ -2774,7 +2774,6 @@ def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
         fdisk_calc_kwargs (dict) - Dictionary of keywords arguments for 
             fraction_stars_for_fdisk_from_halo_disk_mocks function
         
-
     Returns:
         hf (HaloFit) - HaloFit instance
     '''
@@ -2820,8 +2819,8 @@ def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
         kmask = putil.kinematic_selection_mask(orbs,eELzs,accs,selection=selection,
             space=space,selection_version=selection_version)
     
+    # Get disk contamination if required
     if 'disk' in fit_type:
-
         # Load the disk mock
         disk_orbs_filename = disk_mock_path+'/orbs.pkl'
         disk_allstar_filename = disk_mock_path+'/allstar.npy'
@@ -2837,12 +2836,10 @@ def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
         disk_allstar = disk_allstar_nomask[disk_data_mask]
 
         # Calculate how many disk stars to take for correct fdisk
-        Adisk = fraction_stars_for_fdisk_from_halo_disk_mocks(
-            fdisk_targ=fdisk,
-            **fdisk_calc_kwargs
-        )
-        n_disk_contaminant = round(len(disk_orbs)/Adisk)
-        rnp = np.random.default_rng()
+        Adisk = fraction_stars_for_fdisk_from_halo_disk_mocks(fdisk_targ=fdisk,
+            **fdisk_calc_kwargs)
+        n_disk_contaminant = round(len(disk_orbs)*Adisk)
+        rnp = np.random.default_rng(seed=fdisk_seed)
         disk_contam_indx = rnp.choice(np.arange(0,len(disk_orbs),dtype=int), 
                                 size=n_disk_contaminant, replace=False)
         disk_orbs_contam = disk_orbs[disk_contam_indx]
@@ -2858,7 +2855,11 @@ def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
     else:
         # First must calculate the disk contamination
         orbs_disk_all = putil.join_orbs([orbs,disk_orbs_contam])
-        # allstar_disk_all
+        # It's likely that the mock allstar will not have all the fields that
+        # the real data does, so index the subset of necessary fields
+        _common_fields = ['FE_H','LOGG']
+        allstar_disk_all = np.append(allstar[_common_fields],
+                                     disk_allstar_contam[_common_fields])
         hf = MockHaloFit(orbs_disk_all, allstar_disk_all, **hf_kwargs)
     
     return hf
