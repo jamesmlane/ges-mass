@@ -2739,8 +2739,8 @@ def fraction_stars_for_fdisk_from_halo_disk_mocks(fdisk_targ, halo_densfunc,
     return Adisk
 
 
-def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
-    selection_version=None, hf_kwargs={}, ro=None, vo=None, zo=None,
+def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,
+    kinematic_selection_mask_kwargs={}, ro=None, vo=None, zo=None,
     disk_mock_path=None, fdisk=None, fdisk_seed=None, fdisk_calc_kwargs={}):
     '''mock_to_hf:
 
@@ -2758,10 +2758,9 @@ def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
             eccentricity and action calculation
         pot (galpy potential object) - Potential object for eccentricity and
             action calculation
-        selection (str) - selection keyword for putil.kinematic_selection_mask()
-        space (str) - space keyword for putil.kinematic_selection_mask()
-        selection_version (str) - selection_version keyword for 
-            putil.kinematic_selection_mask()
+        kinematic_selection_mask_kwargs (dict) - Dictionary of keyword arguments
+             for putil.kinematic_selection_mask function. 'space' or 'selection' 
+             must be supplied. 'selection_version' can also be supplied.
         hf_kwargs (dict) - Dictionary of keyword arguments for MockHaloFit
             class instantiation
         ro (float) - Distance to Sun, same as galpy ro
@@ -2813,11 +2812,11 @@ def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
     if 'ksf' in fit_type:
         # Calculate kinematics
         orbs = putil.orbit_kinematics_from_df_samples(orbs,dfs,mixture_arr)
-        _,eELzs,accs,_ = putil.calculate_accs_eELzs_orbextr_Staeckel(orbs,pot=pot,
-            aAS=aAS)
+        _,eELzs,accs,_ = putil.calculate_accs_eELzs_orbextr_Staeckel(orbs,
+            pot=pot,aAS=aAS)
         # Create mask based on kinematics
-        kmask = putil.kinematic_selection_mask(orbs,eELzs,accs,selection=selection,
-            space=space,selection_version=selection_version)
+        kmask = putil.kinematic_selection_mask(orbs,eELzs,accs,
+            **kinematic_selection_mask_kwargs)
     
     # Get disk contamination if required
     if 'disk' in fit_type:
@@ -2836,8 +2835,8 @@ def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,selection=None,space=None,
         disk_allstar = disk_allstar_nomask[disk_data_mask]
 
         # Calculate how many disk stars to take for correct fdisk
-        Adisk = fraction_stars_for_fdisk_from_halo_disk_mocks(fdisk_targ=fdisk,
-            **fdisk_calc_kwargs)
+        Adisk = fraction_stars_for_fdisk_from_halo_disk_mocks(
+                **fdisk_calc_kwargs)
         n_disk_contaminant = round(len(disk_orbs)*Adisk)
         rnp = np.random.default_rng(seed=fdisk_seed)
         disk_contam_indx = rnp.choice(np.arange(0,len(disk_orbs),dtype=int), 
