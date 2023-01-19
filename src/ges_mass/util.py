@@ -17,6 +17,7 @@ import numpy as np
 import os
 import dill as pickle
 import copy
+import operator
 from astropy import units as apu
 from astropy import coordinates
 from galpy import orbit
@@ -1157,3 +1158,33 @@ def join_orbs(orbs):
             assert ro==o._ro and vo==o._vo, 'ro and/or vo do not match'
             vxvvs = np.append(vxvvs, o._call_internal(), axis=1)
     return orbit.Orbit(vxvvs.T,ro=ro,vo=vo)
+
+
+def load_distribution_functions(df_filename, betas, ):
+    '''load_distribution_functions:
+
+    Load the distribution functions from the data directory.
+
+    Args:
+        df_filename (str) - Filename of the DF pickle file
+        betas (list) - List of beta values corresponding to the DFs to load
+    
+    Returns:
+        dfs (list) - List of galpy DF objects
+    '''
+    dfs = []
+    with open(df_filename,'rb') as f:
+        print('Loading DFs from '+df_filename)
+        _dfs = pickle.load(f)
+    check_params = ['_beta','_rmin_sampling','_rmax','_pot','_denspot',
+        '_denspot.alpha','_denspot.rc']
+    for i in range(len(_dfs)):
+        if _dfs[i]._beta in betas:
+            dfs.append(_dfs[i])
+            print('\ndf['+str(i)+'] with beta='+str(_dfs[i]._beta)+' props:')
+            for j in range(len(check_params)):
+                print(check_params[j]+': '+\
+                    str(operator.attrgetter(check_params[j])(_dfs[i])))
+        else:
+            print('\nexcluding df['+str(i)+'] with beta='+str(_dfs[i]._beta))
+    return dfs
