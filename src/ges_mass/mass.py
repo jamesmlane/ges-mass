@@ -2453,6 +2453,10 @@ class MockHaloFit(_HaloFit):
                  init=None,
                  init_type=None,
                  fit_type=None,
+                 iso_feh=None,
+                 iso_age=None,
+                 truths=None,
+                 truth_mass=None,
                  # _HaloFit parameters
                  densfunc=None,
                  selec=None,
@@ -2464,8 +2468,6 @@ class MockHaloFit(_HaloFit):
                  int_r_range=None,
                  iso=None,
                  iso_filename=None,
-                 iso_feh=None,
-                 iso_age=None,
                  jkmins=None,
                  feh_range=None,
                  logg_range=None,
@@ -2492,6 +2494,10 @@ class MockHaloFit(_HaloFit):
         Returns:
             None
         '''
+        # First handle feh_range
+        if feh_range is None and iso_feh:
+            feh_range = [iso_feh-0.1,iso_feh+0.1]
+
         # Call parent constructor
         _HaloFit.__init__(self,
                           densfunc=densfunc,
@@ -2537,6 +2543,10 @@ class MockHaloFit(_HaloFit):
         if 'ksf' in self.fit_type:
             assert self.selec is not None, 'selec is required for mock+ksf fits'
         
+        # Mock truths
+        self.truths = truths
+        self.truth_mass = truth_mass
+
         # Single isochrone properties for mock
         self.iso_feh = iso_feh
         if not (iso_feh < self.feh_max and iso_feh > self.feh_min):
@@ -2548,10 +2558,11 @@ class MockHaloFit(_HaloFit):
             selec_str = ''
         else:
             selec_str = self.selec+'/'
+        iso_feh_str = str(round(iso_feh,3))
         fit_data_dir  = fit_dir+'data/'+fit_type+'/'+selec_str+'feh_'+\
-            str(iso_feh)+'/'+densfunc.__name__+'/'+self.version
+            iso_feh_str+'/'+densfunc.__name__+'/'+self.version
         fit_fig_dir  = fit_dir+'fig/'+fit_type+'/'+selec_str+'feh_'+\
-            str(iso_feh)+'/'+densfunc.__name__+'/'+self.version
+            iso_feh_str+'/'+densfunc.__name__+'/'+self.version
         if not os.path.exists(fit_data_dir):
             os.makedirs(fit_data_dir,exist_ok=True)
         if not os.path.exists(fit_fig_dir):
