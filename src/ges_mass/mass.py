@@ -1992,9 +1992,11 @@ class _HaloFit:
         Returns:
             opt (scipy OptimizeResult) - Output of scipy.optimize.minimize
         '''
+        if init is None:
+            init = self.init
+        effsel = self.get_fit_effsel()
         if self.verbose:
             print('Doing maximum likelihood')
-        effsel = self.get_fit_effsel()
         opt_fn = lambda x: mloglike(x, self.densfunc, effsel, self.Rgrid, 
             self.phigrid, self.zgrid, self.Rdata, self.phidata, self.zdata,
             usr_log_prior=self.usr_log_prior)
