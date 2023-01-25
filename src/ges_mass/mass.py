@@ -1978,7 +1978,7 @@ class _HaloFit:
             
         return isofactors
     
-    def run_optimization(self,init,method='Powell',optimizer_kwargs={}):
+    def run_optimization(self,init=None,method='Powell',optimizer_kwargs={}):
         '''run_optimization:
         
         Optimize the likelihood function using scipy.optimize.minimize
