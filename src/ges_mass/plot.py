@@ -169,9 +169,15 @@ def plot_corner(hf,samples=None,plot_mass=False,thin=None,thin_to=None,
         samples = samples[::thin,:]
     
     # Include truths
-    valid_truths = ['mcmc_ml','mcmc_median','post','init']
+    valid_truths = ['mcmc_ml','mcmc_median','post','init','mock_truths']
     if (truths is not None) and (truths in valid_truths):
-        truth_values = hf.get_ml_params(truths)
+        if truths == 'mock_truths':
+            if hf.truths is None:
+                print('mock truths requested, but hf.truths is None')                
+            truth_values = np.ravel(
+                pdens.denormalize_parameters(hf.truths,hf.densfunc))
+        else:
+            truth_values = hf.get_ml_params(truths)
         if plot_mass: # Need to account for ml_ind for mass and other truths
             print('Truths for mass not yet implemented')
             truth_values.append(None)
@@ -186,8 +192,8 @@ def plot_corner(hf,samples=None,plot_mass=False,thin=None,thin_to=None,
     return fig
 
 
-def plot_masses(hf,quantiles=[0.16,0.5,0.84],show_titles=True,
-                corner_kwargs={}):
+def plot_masses(hf,mass_in_log=True,quantiles=[0.16,0.5,0.84],show_titles=True,
+                truths='None',corner_kwargs={}):
     '''plot_masses:
     
     Args:
@@ -202,11 +208,33 @@ def plot_masses(hf,quantiles=[0.16,0.5,0.84],show_titles=True,
     _corner_kwargs = copy.deepcopy(corner_kwargs)
     
     masses = hf.masses
-    if np.median(masses)>_MEDIAN_MASS_FOR_1E8:
-        masses /= 1e8
-        labels = [r'M $[10^{8} \textrm{M}_{\odot}]$']
+    if mass_in_log:
+        if np.any(~np.isfinite(masses)):
+            masses[~np.isfinite(masses)] = np.median(masses)
+        masses = np.log10(masses)
+        labels = [r'$\log_{10}(\mathrm{M}/\mathrm{M}_{\odot})$']
     else:
-        labels = [r'M $\textrm{M}_{\odot}$']
+        if np.median(masses)>_MEDIAN_MASS_FOR_1E8:
+            masses /= 1e8
+            labels = [r'M $[10^{8} \textrm{M}_{\odot}]$']
+        else:
+            labels = [r'M $\textrm{M}_{\odot}$']
+          
+    # Include truths
+    valid_truths = ['mock_truths']
+    if (truths is not None) and (truths in valid_truths):
+        if truths == 'mock_truths':
+            if hf.truths is None:
+                print('mock truths requested, but hf.truth_mass is None')
+            truth_mass = np.array([hf.truth_mass])
+            if mass_in_log:
+                truth_mass = np.log10(truth_mass)
+        if 'truths' not in _corner_kwargs.keys():
+            _corner_kwargs.update({'truths':truth_mass})
+        else:
+            print('Not including truths in _corner_kwargs, key already present')
+    
+    # Plot
     fig = corner.corner(np.atleast_2d(masses).T, quantiles=quantiles, 
                         labels=labels, show_titles=show_titles, **_corner_kwargs)
     return fig
