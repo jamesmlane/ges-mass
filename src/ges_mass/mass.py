@@ -2591,22 +2591,34 @@ class MockHaloFit(_HaloFit):
         self.n_star = len(orbs_obs)
 
         # Initialization
-        if init_type is not None:
-            print('Non-default init_type not supported for MockHaloFit, setting'
-                ' init_type=None')
-            init_type = None
+        if init_type not in [None,'default','truths']:
+            print('init_type must be one of "uninformed", "truths"')
+        if init_type == None:
+            print('No init_type specified, using default "uninformed" init')
+            init_type = 'default'
         self.init_type = init_type
-        if init is None:
-            if init_type is None:
-                if verbose:
-                    print('Using default init')
-                init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
-            # else:
-            #     if verbose:
-            #         print('Using informed init')
-            #     init = self.get_densfunc_mcmc_init_informed(init_type=init_type,
-            #         verbose=verbose)
+        if init_type == 'default':
+            init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
+        if init_type == 'truths':
+            init = truths
         self.init = init
+
+        # if init_type is not None:
+        #     print('Non-default init_type not supported for MockHaloFit, setting'
+        #         ' init_type=None')
+        #     init_type = None
+        # self.init_type = init_type
+        # if init is None:
+        #     if init_type is None:
+        #         if verbose:
+        #             print('Using default init')
+        #         init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
+        #     # else:
+        #     #     if verbose:
+        #     #         print('Using informed init')
+        #     #     init = self.get_densfunc_mcmc_init_informed(init_type=init_type,
+        #     #         verbose=verbose)
+        # self.init = init
             
 
     def get_fit_effsel(self):
