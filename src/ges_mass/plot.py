@@ -411,6 +411,10 @@ def plot_distmod_posterior(hf, pd=None, nrand=None, posterior_type='lines',
     # Checks
     assert posterior_type in ['lines','fill']
     
+    # Safety valve for nrand
+    if nrand is None and hf.samples.shape[0] > 100:
+        nrand = 100
+    
     # Calculate posterior
     if pd is None:
         if hf.verbose:
