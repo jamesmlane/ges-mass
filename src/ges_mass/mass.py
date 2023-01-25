@@ -374,6 +374,56 @@ def _fit_dens_multiprocessing_init(_densfunc, _effsel, _Rgrid, _phigrid, _zgrid,
     usr_log_prior = _usr_log_prior
     
 
+def mass(hf, samples=None, n_star=None, n_mass=None, 
+         mass_int_type='spherical_grid', mass_analytic=False, int_r_range=None,
+         n_edge=[500,100,100], nprocs=None, batch=False, ro=_ro, zo=_zo, 
+         seed=0, verbose=None, _isofactors=None):
+    '''mass:
+    
+    Lightweight wrapper of mass_from_density_samples to be used when supplying
+    HaloFit object, which can account for many other 
+    
+    Args:
+        hf (HaloFit) - 
+        samples (np.ndarray) - 
+    '''
+    # Handle optional inputs
+    if samples is None:
+        samples = hf.samples
+    if n_star is None:
+        n_star = hf.n_star
+    if n_mass is None:
+        n_mass = hf.n_mass
+    if int_r_range is None:
+        int_r_range = hf.int_r_range
+    samples = np.atleast_2d(samples)
+    
+    # Handle parameters from HaloFit class
+    densfunc = hf.densfunc
+    effsel = hf.get_fit_effsel()
+    effsel_grid = hf.get_effsel_list()
+    iso = hf.get_iso()
+    feh_range = hf.feh_range
+    logg_range = hf.logg_range
+    jkmins = hf.jkmins
+    
+    assert densfunc is not None
+    assert effsel is not None
+    assert effsel_grid is not None
+    assert iso is not None
+    assert feh_range is not None
+    assert logg_range is not None
+    assert jkmins is not None
+    
+    out = mass_from_density_samples(samples=samples, densfunc=densfunc, 
+        n_star=n_star, effsel=effsel, effsel_grid=effsel_grid, iso=iso,
+        feh_range=feh_range, logg_range=logg_range, jkmins=jkmins,
+        n_mass=n_mass, mass_int_type=mass_int_type, mass_analytic=mass_analytic,
+        int_r_range=int_r_range, n_edge=n_edge, nprocs=nprocs, batch=batch, 
+        ro=ro, zo=zo, seed=seed, verbose=verbose, _isofactors=_isofactors)
+    return out
+
+    
 def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid, 
                               iso, feh_range, logg_range, jkmins, n_mass=400,
                               mass_int_type='spherical_grid', 
