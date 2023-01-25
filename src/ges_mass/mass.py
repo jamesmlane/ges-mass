@@ -2078,7 +2078,10 @@ class _HaloFit:
                 continue
             if a == 'iso' and getattr(self,'iso_filename') not in [None,'']:
                 continue
-            if res in [None,'']:
+            if a == 'iso_filename' and type(getattr(self,'iso')) in \
+                    [list,np.ndarray]:
+                continue
+            if res in [None,'']:    
                 print('warning: attribute '+str(a)+' not set')
         return None
         
