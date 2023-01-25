@@ -25,6 +25,7 @@ import scipy.optimize
 from scipy.stats import norm
 from isodist import FEH2Z, Z2FEH
 from galpy.util import coords
+from galpy import potential
 from astropy import units as apu
 from . import densprofiles as pdens
 from . import util as putil
@@ -91,7 +92,7 @@ def fit(hf, nprocs=10, force_fit=False, mle_init=True, just_mle=False,
         ncut=hf.ncut, usr_log_prior=hf.usr_log_prior, MLE_init=mle_init, 
         just_MLE=just_mle, return_walkers=return_walkers,
         mcmc_diagnostic_filename=mcmc_diagnostic_filename,
-        optimizer_method='Powell')
+        optimizer_method=optimizer_method)
     
     # Unpack results based on supplied keywords
     if just_mle:
