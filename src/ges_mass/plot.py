@@ -240,7 +240,7 @@ def plot_masses(hf,mass_in_log=True,quantiles=[0.16,0.5,0.84],show_titles=True,
     return fig
 
 
-def plot_density_xyz(hf,params,n=100,scale=20.,contour=False,imshow_kwargs={},
+def plot_density_xyz(hf,params=None,n=100,scale=20.,contour=False,imshow_kwargs={},
                      contour_kwargs={},fig=None,axs=None):
     '''plot_density_xyz:
     
@@ -273,6 +273,24 @@ def plot_density_xyz(hf,params,n=100,scale=20.,contour=False,imshow_kwargs={},
                          'extent':(-scale,scale,-scale,scale),
                          'origin':'lower'}
     
+    # Default params to a best-fit value
+    if params is None:
+        print('params not supplied, trying post optimization result')
+        if not hf._hasResults:
+            hf.get_results()
+        try:
+            params = hf.get_ml_params('post')
+        except AssertionError:
+            print('Could not access post optimization result, trying MCMC ML')
+            try:
+                params = hf.get_ml_params('mcmc_ml')
+            except AssertionError:
+                print('Could not access MCMC ML, trying MCMC median')
+                try:
+                    params = hf.get_ml_params('mcmc_median')
+                except AssertionError:
+                    raise RuntimeError('Could not access params')
+    
     # Index strings
     ind_arr = [[0,1],[0,2],[1,2]]
     ind_str = [['X','Y'],['X','Z'],['Y','Z']]
@@ -291,15 +309,15 @@ def plot_density_xyz(hf,params,n=100,scale=20.,contour=False,imshow_kwargs={},
         # Grid
         if i == 0: # XY plane
             c1grid,c2grid = np.meshgrid(xs,ys)
-            zgrid = np.zeros_like(xgrid)
+            zgrid = np.zeros_like(c1grid)
             Rgrid,phigrid,zgrid = xyz_to_Rphiz(c1grid,c2grid,zgrid)
         if i == 1: # XZ plane
             c1grid,c2grid = np.meshgrid(xs,zs)
-            ygrid = np.zeros_like(xgrid)
+            ygrid = np.zeros_like(c1grid)
             Rgrid,phigrid,zgrid = xyz_to_Rphiz(c1grid,ygrid,c2grid)
         if i == 2: # YZ plane
             c1grid,c2grid = np.meshgrid(ys,zs)
-            xgrid = np.zeros_like(ygrid)
+            xgrid = np.zeros_like(c1grid)
             Rgrid,phigrid,zgrid = xyz_to_Rphiz(xgrid,c1grid,c2grid)
     
         # Calculate densities
