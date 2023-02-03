@@ -652,6 +652,11 @@ def make_densfunc_mcmc_init_from_source_params(densfunc,params_source,
     Returns:
         params
     '''
+    # A few hardcoded limits that roughly correspond to the user-supplied
+    # domain priors.
+    _prior_alpha_max = 10.
+    _prior_r_max = 55.
+    
     dname = densfunc.__name__
     if densfunc_source is not None:
         if not densfunc_source.__name__ ==\
@@ -672,17 +677,17 @@ def make_densfunc_mcmc_init_from_source_params(densfunc,params_source,
         params[2:] = params_source[1:]
     elif dname == 'triaxial_broken_angle_zvecpa':
         params[0] = params_source[0]
-        params[1] = params[0]+1.
+        params[1] = np.min([params[0]+1.,_prior_alpha_max])
         params[3:] = params_source[1:]
     elif dname == 'triaxial_broken_angle_zvecpa_inv':
         params[0] = params_source[0]
-        params[1] = params[0]+1.
+        params[1] = np.min([params[0]+1.,_prior_alpha_max])
         params[3:] = params_source[1:]
     elif dname == 'triaxial_double_broken_angle_zvecpa':
         params[:2] = params_source[:2]
-        params[2] = params[1]+1.
+        params[2] = np.min([params[1]+1.,_prior_alpha_max])
         params[3] = params_source[2]
-        params[4] = params[3]+10.
+        params[4] = np.min([params[3]+10.,_prior_r_max])
         params[5:] = params_source[3:]
     elif 'plusexpdisk' in dname:
         params[:-1] = params_source
