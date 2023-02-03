@@ -1658,6 +1658,7 @@ class _HaloFit:
         self.aic = None
         self.bic = None
         self.loglike = None
+        self._hasResults = False
         
         # Galpy scales and zo
         self.ro = ro
@@ -1793,6 +1794,8 @@ class _HaloFit:
         # Also load the sampler if requested.
         if load_sampler:
             self.get_sampler()
+            
+        self._hasResults = True
     
     def get_sampler(self):
         '''get_sampler:
