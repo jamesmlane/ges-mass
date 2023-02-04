@@ -11,6 +11,8 @@ logg_range = [logg_min,logg_max]
 feh_range = [feh_min,feh_max]
 feh_range_gse = [feh_min_gse,feh_max_gse]
 feh_range_all = [feh_min,feh_max_gse]
+feh_range_fit = copy.deepcopy( # Need to choose here
+
 
 ## Pathing
 fit_paths = putil.prepare_paths(base_dir,apogee_dr,apogee_results_vers,gaia_dr,
