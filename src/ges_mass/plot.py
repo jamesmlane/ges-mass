@@ -337,7 +337,7 @@ def plot_density_xyz(hf,params=None,n=100,scale=20.,contour=False,imshow_kwargs=
 
 
 def plot_density_re(hf, re_range=[0.1,100], nre=100, nrand=None, 
-                    plot_kwargs={}):
+                    plot_kwargs=None,plot_physical=False):
     '''plot_density_re:
     
     Make a figure of density vs effective radius
@@ -348,14 +348,18 @@ def plot_density_re(hf, re_range=[0.1,100], nre=100, nrand=None,
         nre (int) - Number of effective radii to consider [default 100]
         nrand (int) - Number of samples to randomly select [default None]
         plot_kwargs (dict) - kwargs to send to plt.plot [default {}]
+        plot_physical (bool) - If True then plot with physical units (requires
+            isofactors loaded into hf), otherwise normalized to the density 
+            at the solar position. [default False]
         
     Returns:
         fig (matplotlib Figure object)
         axs (matplotlib Axis object)
-    '''
-    # Figure & axis
-    fig = plt.figure()
-    ax = fig.add_subplot(111)
+    '''    
+    if plot_kwargs is None:
+        plot_kwargs = {'alpha':0.25,
+                       'color':'DarkOrange',
+                       'linewidth':1.}
     
     # Effective radius grid
     re = np.logspace(np.log10(re_range[0]), np.log10(re_range[1]), nre)
@@ -367,24 +371,54 @@ def plot_density_re(hf, re_range=[0.1,100], nre=100, nrand=None,
     params = ['p','q']
     indx = pdens.get_densfunc_params_indx(hf.densfunc,params)
     
+    if plot_physical:
+        hf.get_results()
+        assert len(hf.facs) == len(hf.mass_inds)
+        n_mass = len(hf.facs)
+        if nrand is not None and nrand > len(hf.mass_inds):
+            print('Setting nrand to the number of masses in hf')
+            nrand = n_mass
+    
+    # Safety valve for nrand
+    if nrand is None and hf.samples.shape[0] > 100:
+        nrand = 100
+    
     # Determine samples for which to calculate density
-    if nrand is not None:
-        nrand = int(nrand)
-        rnp = np.random.default_rng()
-        randind = rnp.integers(0,hf.samples.shape[0],size=nrand)
-        samples_in = hf.samples[randind]
+    if plot_physical:
+        if nrand is not None:
+            nrand = int(nrand)
+            rnp = np.random.default_rng()
+            randind = rnp.integers(0,n_mass,size=nrand)
+            samples_in = hf.samples[hf.mass_inds[randind]]
+        else:
+            samples_in = hf.samples[hf.mass_inds[:]]
     else:
-        samples_in = hf.samples[:]
+        if nrand is not None:
+            nrand = int(nrand)
+            rnp = np.random.default_rng()
+            randind = rnp.integers(0,hf.samples.shape[0],size=nrand)
+            samples_in = hf.samples[randind]
+        else:
+            samples_in = hf.samples[:]
+    
+    # Figure & axis
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
     
     # Calculate density and plot
     for i in range(len(samples_in)):
         _sample = samples_in[i]
         _sample[indx] = [1.,1.]
         dens = hf.densfunc(re,_phi,_z,params=_sample)
+        if plot_physical:
+            dens *= hf.facs[randind[i]]
         ax.plot(log_re, np.log10(dens), **plot_kwargs)
     
     ax.set_xlabel(r'$\log_{10} (r_{e})$ [kpc]')
-    ax.set_ylabel(r'$\log_{10} (\nu)$')
+    if plot_physical:
+        ax.set_ylabel(r'$\log_{10} (\rho / \mathrm{M}_{\odot} \mathrm{kpc}^{-3})$')
+    else:
+        ax.set_ylabel(r'$\log_{10} (\nu_{\star})$')
     
     return fig
 
@@ -422,9 +456,12 @@ def plot_distmod_posterior(hf, pd=None, nrand=None, posterior_type='lines',
     if hist_kwargs is None:
         hist_kwargs = {'color':'Black'}
     if fill_kwargs is None:
-        fill_kwargs = {'alpha':0.5,'color':'DarkOrange'}
+        fill_kwargs = {'alpha':0.5,
+                       'color':'DarkOrange'}
     if lines_kwargs is None:
-        lines_kwargs = {'color':'DarkOrange','linewidth':2.}
+        lines_kwargs = {'alpha':0.25,
+                        'color':'DarkOrange',
+                        'linewidth':1.}
     
     # Checks
     assert posterior_type in ['lines','fill']
