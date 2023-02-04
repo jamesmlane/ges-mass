@@ -634,7 +634,7 @@ def find_orbit_nearest_neighbor(orbs1,orbs2,ro=8,vo=220):
                                    frame='galactic')
     else:
         sc1 = coordinates.SkyCoord(l=orbs1_copy.ll().to(apu.deg), 
-                                   b=orbs1_copy.bb().to(apu.kpc), 
+                                   b=orbs1_copy.bb().to(apu.deg), 
                                    distance=orbs1_copy.dist().to(apu.kpc), 
                                    frame='galactic')
     
