@@ -201,7 +201,11 @@ def prepare_paths(base_dir,apogee_dr,apogee_results_vers,gaia_dr,df_version,
     df_dir = data_dir+'ksf/'+version_dir+df_version+'/'
     ksf_dir = df_dir+ksf_version+'/'
     fit_dir = data_dir+'fitting/'
-    return [data_dir,version_dir,ga_dir,gap_dir,df_dir,ksf_dir,fit_dir]
+    out = [data_dir,version_dir,ga_dir,gap_dir,df_dir,ksf_dir,fit_dir]
+    for drctry in out:
+        if not os.path.isdir(drctry):
+            os.makedirs(drctry,exist_ok=True)
+    return out
 
 
 def prepare_filenames(ga_dir,gap_dir,feh_range):
