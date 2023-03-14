@@ -255,6 +255,42 @@ def transform_zvecpa(xyz,zvec,pa):
         tgalcenrect = np.einsum('ij,aj->ai', trot, xyz)
         return tgalcenrect[:,0], tgalcenrect[:,1], tgalcenrect[:,2]
 
+def rotate_to_vector(a,b,inv=False):
+    '''rotate_to_vector:
+
+    Rotate a vector v1 to a new vector v2. Returns a rotation matrix R such that
+    R*v1 = v2.
+
+    Note that currently this code uses the implementation of this function
+    in galpy.util.bovy_coords, just trying to make my own here to understand
+    the math better.
+
+    Args:
+        v1 (np.array) - Original vector
+        v2 (np.array) - New vector
+
+    Returns:
+        R (np.array) - Rotation matrix (3x3)
+    '''
+    # Cast as numpy arrays
+    a = np.array(a)
+    b = np.array(b)
+    # Normalize
+    a = a/np.sqrt(np.sum(a**2.))
+    b = b/np.sqrt(np.sum(b**2.))
+    # Get rotation axis, sine of angle, and cosine of angle
+    v = np.cross(a,b)
+    s = np.sqrt(np.sum(v**2.))
+    #v/= s
+    c = np.dot(a,b)
+    # Get the rotation matrix
+    vx = np.array([[0.,-v[2],v[1]],
+                   [v[2],0.,-v[0]],
+                   [-v[1],v[0],0.]])
+    R = np.eye(3) + vx + np.dot(vx,vx)*(1.-c)/(s**2.)
+    if inv:
+        R= np.linalg.inv(R)
+    return R
 
 def eta_theta_to_zvec(eta,theta):
     '''eta_theta_to_zvec:
