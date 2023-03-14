@@ -226,7 +226,7 @@ def denormalize_parameters(params,model,theta_in_degr=False,phi_in_degr=False):
     return params_out
 
 
-def transform_zvecpa(xyz,zvec,pa):
+def transform_zvecpa(xyz,zvec,pa,inv=False):
     '''transform_zvecpa:
 
     Transform xyz coordinates by rotation of galactocentric Z-axis to zvec, 
@@ -241,6 +241,7 @@ def transform_zvecpa(xyz,zvec,pa):
     Returns:
         x,y,z (np.arrays) - Galactocentric rectangular coordinates
     '''
+    if inv: print('WARNING: transform_zvecpa is not yet tested for inv=True')
     pa_rot= np.array([[np.cos(pa),np.sin(pa),0.],
                          [-np.sin(pa),np.cos(pa),0.],
                          [0.,0.,1.]])
@@ -248,6 +249,8 @@ def transform_zvecpa(xyz,zvec,pa):
     zvec/= np.sqrt(np.sum(zvec**2.))
     zvec_rot= _rotate_to_arbitrary_vector(np.array([[0.,0.,1.]]),zvec,inv=True)[0]
     trot= np.dot(pa_rot,zvec_rot)
+    if inv:
+        trot= np.linalg.inv(trot)
     if np.ndim(xyz) == 1:
         tgalcenrect = np.dot(trot, xyz)
         return tgalcenrect[0], tgalcenrect[1], tgalcenrect[2]
