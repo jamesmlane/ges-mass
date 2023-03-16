@@ -516,30 +516,24 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
                 plt.close(fig)
                 
 
-def create_kSF_grid(selec_spaces, apogee_effSF, apogee_fields, ds,
-    kSF_dir, fig_dir, ro, vo, zo, spline_type='linear', make_SF_plots=False, 
-    denspot=None, make_purity_grid=True):
+def create_kSF_grid(selec_spaces, apogee_fields, ds, kSF_dir, 
+    spline_type='linear', make_purity_grid=True):
     '''apply_kSF_splines_to_effSF:
 
     Use the kSF spline grid to generate the kSF correction over the distance 
-    modulus grid and apply it to the effective selection function grid.
+    modulus grid
 
     Args:
         selec_spaces (list) - List of strings corresponding to the kinematic 
             selection
-        apogee_effSF (np array) - Effective selection function grid with shape 
-            [nfields,ndistmods]
         apogee_fields (np recarray) APOGEE field information array
         ds (np array) - Distance grid in kpc
         kSF_dir (string) - Kinematic selection function directory where the 
             spline files are stored
-        fig_dir (string) - Place to store figures
-        ro,vo,zo (float) - galpy scale lengths / solar position
         spline_type (str) - Type of spline to create, either 'linear',
             'cubic', or 'both' ['linear']
-        make_sf_plots (bool) - Make plots of the SFs
-        denspot (galpy.potential.Potential) - Density profile to weight 
-            SFs along LOS for proper visualization
+        make_purity_grid (bool) - Whether to make the purity grid as well as
+            the completeness grid [True]
 
     Returns:
         keffSF_grid (array) - kinematic effective selection function grid with 
@@ -549,12 +543,12 @@ def create_kSF_grid(selec_spaces, apogee_effSF, apogee_fields, ds,
     logds = np.log10(ds)
     ndistmods = len(ds)
     nfields = len(apogee_fields)
-    assert apogee_effSF.shape == (nfields,ndistmods), 'insane :('
+    
+    print('\nUsing '+str(nfields)+' fields')
+    print('Using '+str(ndistmods)+' distance moduli')
     
     # Filenames based on kinematic spaces used to select GES stars
     selec_spaces_suffix = '-'.join(selec_spaces)
-    if make_SF_plots:
-        os.makedirs(fig_dir+selec_spaces_suffix,exist_ok=True)
     if spline_type in ['linear','both']:
         spline_linear_filename = kSF_dir+'kSF_splines_linear_'+\
             selec_spaces_suffix+'.pkl'
@@ -573,10 +567,11 @@ def create_kSF_grid(selec_spaces, apogee_effSF, apogee_fields, ds,
                 pickle.load(f)
 
     # Create a grid to map the splines onto
-    kSF_grid_cubic = np.zeros_like(apogee_effSF)
-    kSF_grid_linear = np.zeros_like(apogee_effSF)
-    purity_grid_cubic = np.zeros_like(apogee_effSF)
-    purity_grid_linear = np.zeros_like(apogee_effSF)
+    grid_shape = (nfields,ndistmods)
+    kSF_grid_cubic = np.zeros(grid_shape)
+    kSF_grid_linear = np.zeros(grid_shape)
+    purity_grid_cubic = np.zeros(grid_shape)
+    purity_grid_linear = np.zeros(grid_shape)
 
     # Loop over each location and apply the kSF splines to the grid
     for i in range(nfields):
@@ -598,8 +593,7 @@ def create_kSF_grid(selec_spaces, apogee_effSF, apogee_fields, ds,
                 spline_purity_raw_cubic = purity_cubic_splines[i](logds)
                 purity_grid_cubic[i,:] = spline_purity_raw_cubic
     
-    # Apply the kinematic selection function to the effective selection function
-    # then save
+    # Save the new grids
     if spline_type in ['linear','both']:
         # kinematic selection function grid
         kSF_filename_linear = kSF_dir+'kSF_grid_linear_'+\
@@ -616,15 +610,6 @@ def create_kSF_grid(selec_spaces, apogee_effSF, apogee_fields, ds,
             with open(purity_filename_linear,'wb') as f:
                 pickle.dump(purity_grid_linear,f)
         
-        # kinematic effective selection funcion
-        # keffSF_filename_linear = kSF_dir+'apogee_keffSF_grid_inclArea_linear_'\
-        #                      +selec_spaces_suffix+'.dat'
-        # keffSF_grid_linear = apogee_effSF*kSF_grid_linear
-        # print('\nSaving kinematic effective selection function to '+\
-        #       keffSF_filename_linear)
-        # with open(keffSF_filename_linear,'wb') as f:
-        #     pickle.dump(keffSF_grid_linear,f)
-        
     if spline_type in ['cubic','both']:
         # kinematic selection function grid
         kSF_filename_cubic = kSF_dir+'kSF_grid_cubic_'+\
@@ -640,86 +625,6 @@ def create_kSF_grid(selec_spaces, apogee_effSF, apogee_fields, ds,
                   purity_filename_cubic)
             with open(purity_filename_cubic,'wb') as f:
                 pickle.dump(purity_grid_cubic,f)
-        
-        # kinematic effective selection funcion
-        # keffSF_filename_cubic = kSF_dir+'apogee_keffSF_grid_inclArea_cubic_'\
-        #                      +selec_spaces_suffix+'.dat'
-        # keffSF_grid_cubic = effSF_grid*kSF_grid_cubic
-        # print('\nSaving kinematic effective selection function to '+\
-        #       keffSF_filename_cubic)
-        # with open(keffSF_filename_cubic,'wb') as f:
-        #     pickle.dump(keffSF_grid_cubic,f)
-    
-    # Make plots
-    if make_SF_plots:
-        
-        # Create a large linear grid of orbits representing positions where 
-        # the SF is evaluated, corresponding to SF.flatten()
-        orbs_grid = putil.make_SF_grid_orbits(apogee_fields,ds,ro,vo,zo,
-            fudge_ll_instability=True)
-        
-        # Weight selection functions by stellar density for proper viewing
-        effSF_grid_weighted = np.zeros(nfields)
-        kSF_grid_weighted = np.zeros(nfields)
-        keffSF_grid_weighted = np.zeros(nfields)
-        
-        for i in range(nfields):
-            ll = apogee_fields['GLON'][i].repeat(ndistmods)
-            bb = apogee_fields['GLAT'][i].repeat(ndistmods)
-            field_vxvv = np.zeros((ndistmods,6))
-            field_vxvv[:,0] = ll
-            field_vxvv[:,1] = bb
-            field_vxvv[:,2] = ds
-            field_orbs = orbit.Orbit(vxvv=field_vxvv,lb=True)
-            dens_weights = potential.evaluateDensities(denspot,field_orbs.R(),
-                field_orbs.z())
-
-            # Weight the SF along the LOS by the density of the stellar halo
-            effSF_grid_weighted[i] = np.average(effSF_grid[i],
-                weights=dens_weights)
-            kSF_grid_weighted[i] = np.average(kSF_grid[i],
-                weights=dens_weights)
-            keffSF_grid_weighted[i] = np.average(keffSF_grid[i],
-                weights=dens_weights)
-        
-        fig = plt.figure(figsize=(15,5))
-        axs = fig.subplots(nrows=1,ncols=3)
-        
-        SF_plot_arr = [np.log10(effSF_grid_weighted),
-                       kSF_grid_weighted,
-                       np.log10(keffSF_grid_weighted)]
-        labels = ['eff. SF','kin. SF',r'kin. SF $\times$ eff. SF']
-        # SF_grid_arr = [effSF_grid,kSF_grid,keffSF_grid]
-        
-        for i in range(3):
-            
-            vmin,vmax = -3,1
-            if i == 1:
-                vmin,vmax = 0.,1.
-            ##fi
-            glon_plot = copy.deepcopy(apogee_fields['GLON'])
-            glon_plot[glon_plot>180] = glon_plot[glon_plot>180]-360
-            pts = axs[i].scatter(glon_plot, apogee_fields['GLAT'], 
-                                 c=SF_plot_arr[i], vmin=vmin, vmax=vmax)
-            axs[i].set_xlabel('longitude [deg]')
-            axs[i].set_ylabel('latitude [deg]')
-            axs[i].set_xlim(180,-180)
-            axs[i].set_ylim(-90,90)
-            axs[i].set_xticks([180,90,0,-90,-180])
-            axs[i].set_yticks([-90,-45,0,45,90])
-            # axs[i].suptitle(labels[i],fontsize=12)
-            cbar = fig.colorbar(pts, ax=axs[i], orientation='horizontal')
-            cbar.set_label(labels[i])
-        
-        fig.savefig(fig_dir+selec_spaces_suffix+'/SF_map.pdf')
-        plt.close(fig)
-        
-    #if spline_type in 'both':
-    #    return keffSF_grid_linear, keffSF_grid_cubic
-    #elif spline_type in 'linear':
-    #    return keffSF_grid_linear
-    #elif spline_type in 'cubic':
-    #    return keffSF_grid_cubic
 
 # -----------------------------------------------------------------------------
 
