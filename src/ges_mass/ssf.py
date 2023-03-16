@@ -194,8 +194,8 @@ def fit_linear_spline(x,y):
 
 
 def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
-    mixture_arr, halo_selection_dict, phi0, lblocids_pointing, ds_individual, 
-    fs, kSF_dir, fig_dir, force_splines=False, force_cp=False, 
+    mixture_arr, denspots, halo_selection_dict, phi0, lblocids_pointing, 
+    ds_individual, fs, kSF_dir, fig_dir, force_splines=False, force_cp=False, 
     spline_type='linear', make_spline_plots=None, n_spline_plots=50):
     '''make_completeness_purity_splines:
     
@@ -220,6 +220,11 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
         mixture_arr () - Array of size = number of DFs containing the fractions 
             of samples used to generate the mixtures for completeness and purity 
             calculations
+        denspots (list of galpy Potentials instances) - List of size = number of
+            DFs containing the potentials which are the denspots= arguments of
+            the DFs. These are evaluated (evaluateDensities) at each location
+            to produce weights for the purity calculation (completeness is
+            independent of the density)
         halo_selection_dict (dict) - Dictionary containing halo selections
         phi0 (float) - Value of the potential at infinity
         lblocids_pointing (list) - List containing the ls, bs, and locids 
@@ -256,15 +261,31 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
     n_pointing = len(locids_pointing)
     
     # Program is only setup to handle 2 samples as input
-    assert len(orbs) == 2
-    assert len(eELzs) == 2
-    assert len(actions) == 2
-    assert len(mixture_arr) == 2
+    assert len(orbs) == 2, 'Function is only setup to handle 2 samples'
+    assert len(eELzs) == 2, 'Function is only setup to handle 2 samples'
+    assert len(actions) == 2, 'Function is only setup to handle 2 samples'
+    assert len(mixture_arr) == 2, 'Function is only setup to handle 2 samples'
+    assert len(denspots) == 2, 'Function is only setup to handle 2 samples'
     
     # Assert that orbs faithfully holds location and sample number info
     n_locs = len(orbs[0])
     n_samples = len(orbs[0][0])
     
+    # Determine how weights for purity will be calculated
+    for d in denspots:
+        assert d is None or isinstance(d,potential.Potential), \
+            'denspots[i] must be None or a galpy.potential.Potential instance'
+    assert isinstance(mixture_arr,np.ndarray), 'mixture_arr must be a numpy array'
+    for m in mixture_arr:
+        assert m is None or isinstance(m,(float,int)), \
+            'mixture_arr[i] must be None or a number'
+    _has_mixture_arr = not (np.all(mixture_arr == 0) or np.all(mixture_arr == None))
+    _has_denspot = not (denspots[0] == None or denspots[1] == None)
+    if _has_mixture_arr and _has_denspot:
+        print('Provided mixture_arr and denspot for purity calculation,'
+              ' prioritizing denspot')
+        _has_mixture_arr = False
+
     completeness = np.zeros(n_locs)
     purity = np.zeros(n_locs)
     if isinstance(selec_spaces,str): selec_spaces = [selec_spaces,]
@@ -312,13 +333,36 @@ def make_completeness_purity_splines(selec_spaces, orbs, eELzs, actions,
                     highbeta_selec = highbeta_selec & pplot.is_in_scaled_selection(
                         highbeta_x, highbeta_y, this_selection, factor=[1.,1.])
 
+            # Calculate the purity factor. This will be multiplied to each 
+            # number of counts in the selection regions to account for the 
+            # variation in density profile / arbitrary mixture
+            if _has_mixture_arr:
+                n_low_beta_purity = np.sum(lowbeta_selec)*mixture_arr[0]
+                n_high_beta_purity = np.sum(highbeta_selec)*mixture_arr[1]
+            elif _has_denspot:
+                # Make some assertions about the orbits for sanity
+                assert np.all(orbs[0][i].R().value == orbs[1][i].R().value[0])
+                assert np.all(orbs[0][i].R().value == orbs[1][i].R().value)
+                assert np.all(orbs[0][i].z().value == orbs[1][i].z().value) 
+                loc_R = orbs[0][i].R()[0]
+                loc_z = orbs[0][i].z()[0]
+                dens_low_beta_purity = potential.evaluateDensities(
+                    denspots[0],loc_R,loc_z,use_physical=False)
+                dens_high_beta_purity = potential.evaluateDensities(
+                    denspots[1],loc_R,loc_z,use_physical=False)
+                n_low_beta_purity = np.sum(lowbeta_selec)*dens_low_beta_purity
+                n_high_beta_purity = np.sum(highbeta_selec)*dens_high_beta_purity
+
+
             if np.sum(highbeta_selec) == 0:
                 completeness[i] = 0
                 purity[i] = 0
             else:
                 completeness[i] = np.sum(highbeta_selec)/n_samples
-                purity[i] = np.sum(highbeta_selec)/(np.sum(highbeta_selec)\
-                                                    +np.sum(lowbeta_selec))
+                purity[i] = n_high_beta_purity/\
+                    (n_high_beta_purity+n_low_beta_purity)
+                # purity[i] = np.sum(highbeta_selec)/(np.sum(highbeta_selec)\
+                #                                     +np.sum(lowbeta_selec))
         print('Saving purity and completeness to '+purity_filename+' and '+\
               completeness_filename)
         np.save(completeness_filename, completeness, allow_pickle=True)
