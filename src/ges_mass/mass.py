@@ -30,6 +30,7 @@ from astropy import units as apu
 from . import densprofiles as pdens
 from . import util as putil
 from . import iso as piso
+from . import plot as pplot
 
 _ro = 8.275 # Gravity Collab.
 _zo = 0.0208 # Bennett and Bovy
@@ -2063,6 +2064,46 @@ class _HaloFit:
         
         return mll,aic,bic
     
+    def get_rotated_coords_in_gc_frame(self,params=None,ml_type='mcmc_median',
+        vec=np.array([0,0,1])):
+        '''get_rotated_coords_in_gc_frame:
+
+        Take a vector in the rotated frame and transform it back to the 
+        GC frame. This is useful for determining e.g. the principal axis 
+        of a triaxial density ellipsoid
+
+        Args:
+            params (array) - List of parameters to calculate vector for,
+                if None then fall back on ml_type
+            ml_type (str) - Type of 'best-fit' parameter to use if the 
+                params argument is None. [default 'mcmc_median']
+            vec (array) - Vector to transform back to GC frame [default [0,0,1]]
+
+        Returns:
+            gc_vec (array) - Vector in GC frame
+        '''
+        if params is None:
+            print('No params supplied, using ml_type: '+ml_type)
+            params = self.get_ml_params(ml_type=ml_type)
+        params = pdens.denormalize_parameters(params,self.densfunc)
+
+        # Get the parameters to make zvec from the densfunc and params
+        indx = pdens.get_densfunc_params_indx(self.densfunc,
+            ['theta','eta','phi'])
+        if len(params.shape) > 1:
+            theta,eta,phi = params.flatten()[indx]
+        else:
+            theta,eta,phi = params[indx]
+        zvec = np.array([np.sqrt(1-eta**2)*np.cos(theta), 
+                         np.sqrt(1-eta**2)*np.sin(theta), 
+                         eta])
+
+        # Transform the coordinates out of the rotated frame
+        x,y,z = pdens.transform_zvecpa(np.dstack(vec)[0],zvec,phi,inv=True)
+        gc_vec = np.array([x,y,z]).T
+
+        return gc_vec
+
     # Utils
     
     def _check_not_set(self):
