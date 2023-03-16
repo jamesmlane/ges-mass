@@ -241,7 +241,7 @@ def transform_zvecpa(xyz,zvec,pa,inv=False):
     Returns:
         x,y,z (np.arrays) - Galactocentric rectangular coordinates
     '''
-    if inv: print('WARNING: transform_zvecpa is not yet tested for inv=True')
+    if inv: warnings.warn('transform_zvecpa is not yet tested for inv=True')
     pa_rot= np.array([[np.cos(pa),np.sin(pa),0.],
                          [-np.sin(pa),np.cos(pa),0.],
                          [0.,0.,1.]])
