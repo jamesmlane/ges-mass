@@ -26,12 +26,18 @@ apogee_SF_filename,apogee_effSF_filename,apogee_effSF_mask_filename,\
 
 ## File loading and data preparation
 fit_stuff,other_stuff = putil.prepare_fitting(fit_filenames,
-    [ndmod,dmod_min,dmod_max], ro,zo,return_other=True)
+    [ndmod,dmod_min,dmod_max],ro,zo,return_other=True)
 apogee_effSF_mask,dmap,iso_grid,jkmins,dmods,ds,effsel_grid,apof,\
     allstar_nomask,orbs_nomask = fit_stuff
 Rgrid,phigrid,zgrid = effsel_grid
+# apogee_SF,apogee_effSF_grid_inclArea,apogee_effSF_grid_inclArea_Jac = other_stuff
 
 # ## Load the distribution functions
 # df_filename = df_dir+'dfs.pkl'
 # betas = [0.3,0.8]
 # dfs = putil.load_distribution_functions(df_filename, betas)
+
+# ## Load the APOGEE field information, can also similarly load 
+# ## '...apogee_field_glons.npy', '...apogee_field_glats.npy', 
+# ## '...apogee_field_location_ids.npy'
+# apogee_fields = np.load(ga_dir+'apogee_fields.npy')
