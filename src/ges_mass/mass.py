@@ -35,7 +35,7 @@ from . import plot as pplot
 _ro = 8.275 # Gravity Collab.
 _zo = 0.0208 # Bennett and Bovy
 
-_PRIOR_ETA_MIN = 0.5
+_PRIOR_ETA_MIN = 1/np.sqrt(2)
 
 # ----------------------------------------------------------------------------
 
