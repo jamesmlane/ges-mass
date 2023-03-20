@@ -669,6 +669,7 @@ def parse_mixture(arr, mixture_arr, seed=None, absolute=True, return_inds=False)
                 n_arr = np.atleast_2d(arr[i]).shape[1]
                 _isNumpy = True
             else:
+                n_arr = len(arr[i])
                 _isNumpy = False
             
             n_samples = int(n_arr*orb_frac)
