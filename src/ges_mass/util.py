@@ -253,70 +253,157 @@ def prepare_fitting(fit_filenames,dmod_info,ro,zo,return_other=False):
         return_other (bool) - Return supplementary stuff
     
     Returns:
-        out_main = [dmap,iso_grid,jkmins,dmods,ds,effsel_grid,apof]
-        out_other = [apogee_SF,apogee_effSF_grid_inclArea,apogee_effSF_mask,
-                     allstar_nomask,orbs_nomask,]
+        out_main = [apogee_effSF_mask,dmap,iso_grid,jkmins,dmods,ds,effsel_grid,
+                    apogee_effSF_grid_inclArea_mask_Jac,allstar_nomask,
+                    orbs_nomask]
+        out_other = [apogee_SF,apogee_effSF_grid_inclArea]
+
+    About output:
+
+    out_main = [
+        
+        apogee_effSF_mask - Mask for APOGEE effective selection function
+        
+        dmap - Dust map
+
+        iso_grid - Isochrone grid
+
+        jkmins - Minimum J-Ks for each field, with mask applied
+
+        dmods - Distance moduli for each line of sight
+
+        ds - Distances for each line of sight
+
+        effsel_grid - Effective selection function grid [Rgrid,phigrid,zgrid]
+
+        apogee_effSF_grid_inclArea_Jac_mask - APOGEE effective selection
+            function grid, including area factor, including Jacobian factors,
+            with mask applied. Commonly referred to as 'apof' in code
+        
+        allstar_nomask - Allstar data with no masking applied
+
+        orbs_nomask - Orbits data with no masking applied
+        
+        ]
+    
+    out_other = [
+        
+        apogee_SF - APOGEE selection function object 
+
+        apogee_effSF_grid_inclArea - APOGEE effective selection function grid,
+            including area factor, no mask or Jacobian factors.
+        
+        apogee_effSF_grid_inclArea_Jac - APOGEE effective selection function 
+            grid, including area factor, including Jacobian factors, no mask 
+            applied.
+        
+        ]
     '''
-    ## Unpack filenames
+    # Unpack filenames
     apogee_SF_filename,apogee_effSF_filename,apogee_effSF_mask_filename,\
         iso_grid_filename,clean_kinematics_filename = fit_filenames
     
-    ## Selection function
-    with open(apogee_SF_filename, 'rb') as f:
-        print('\nLoading APOGEE sel. func. from '+\
-              apogee_SF_filename)
-        apogee_SF = pickle.load(f)
-    with open(apogee_effSF_filename,'rb') as f:
-        print('\nLoading APOGEE eff. sel. func. from '+\
-              apogee_effSF_filename)
-        apogee_effSF_grid_inclArea = pickle.load(f)
-    print('\nLoading APOGEE eff. sel. func. mask from '+\
-          apogee_effSF_mask_filename)
-    apogee_effSF_mask = np.load(apogee_effSF_mask_filename)
+    # Selection function
+    if os.path.exists(apogee_SF_filename):
+        with open(apogee_SF_filename, 'rb') as f:
+            print('\nLoading APOGEE sel. func. from '+\
+                  apogee_SF_filename)
+            apogee_SF = pickle.load(f)
+    else:
+        print('\nAPOGEE sel. func. does not yet exist')
+        apogee_SF = None
+    
+    # Effective selection function
+    if os.path.exists(apogee_effSF_filename):
+        with open(apogee_effSF_filename,'rb') as f:
+            print('\nLoading APOGEE eff. sel. func. from '+\
+                  apogee_effSF_filename)
+            apogee_effSF_grid_inclArea = pickle.load(f)
+    else:
+        print('\nAPOGEE eff. sel. func. does not yet exist')
+        apogee_effSF_grid_inclArea = None
+    
+    # Effective selection function mask
+    if os.path.exists(apogee_effSF_mask_filename):
+        print('\nLoading APOGEE eff. sel. func. mask from '+\
+              apogee_effSF_mask_filename)
+        apogee_effSF_mask = np.load(apogee_effSF_mask_filename)
+    else:
+        print('\nAPOGEE eff. sel. func. mask does not yet exist')
+        apogee_effSF_mask = None
 
-    ## Data
-    with open(clean_kinematics_filename,'rb') as f:
-        print('\nLoading cleaned kinematics from '+clean_kinematics_filename)
-        clean_kinematics = pickle.load(f)
-    _,allstar_nomask,orbs_nomask,_,_,_ = clean_kinematics
+    # Data
+    if os.path.exists(clean_kinematics_filename):
+        with open(clean_kinematics_filename,'rb') as f:
+            print('\nLoading cleaned kinematics from '+clean_kinematics_filename)
+            clean_kinematics = pickle.load(f)
+        _,allstar_nomask,orbs_nomask,_,_,_ = clean_kinematics
+    else:
+        print('\nCleaned kinematics do not yet exist')
+        allstar_nomask = None
+        orbs_nomask = None
 
-    ## Dust map, from mwdust, use most recent
+    # Dust map, from mwdust, use most recent
     dmap = mwdust.Combined19(filter='2MASS H')
 
-    ## Isochrone
-    print('\nLoading isochrone grid from '+iso_grid_filename)
-    iso_grid = np.load(iso_grid_filename)
+    # Isochrone
+    if os.path.exists(iso_grid_filename):
+        print('\nLoading isochrone grid from '+iso_grid_filename)
+        iso_grid = np.load(iso_grid_filename)
+    else:
+        print('Isochrone grid does not yet exist')
 
-    ## JKmins
-    jkmins = np.array([apogee_SF.JKmin(apogee_SF._locations[i]) \
-                       for i in range(len(apogee_SF._locations))])
+    # JKmins
+    if apogee_SF is not None:
+        jkmins = np.array([apogee_SF.JKmin(apogee_SF._locations[i]) \
+                           for i in range(len(apogee_SF._locations))])
+    else:
+        print('\nAPOGEE sel. func. does not exist, cannont make jkmins')
+        jkmins = None
 
     ## Distance modulus grid
     ndmod,dmod_min,dmod_max = dmod_info
     dmods,ds = make_dmod_grid(ndmod,dmod_min,dmod_max)
 
     ## Grid of positions in the APOGEE effective selection function grid
-    Rgrid,phigrid,zgrid = pmass.Rphizgrid(apogee_SF,dmods,ro=ro,zo=zo)
+    if apogee_SF is not None:
+        Rgrid,phigrid,zgrid = pmass.Rphizgrid(apogee_SF,dmods,ro=ro,zo=zo)
+    else:
+        print('\nAPOGEE sel. func. does not exist, cannot make Rphiz grid')
+        Rgrid = None
+        phigrid = None
+        zgrid = None
+
+    ## Include the distance modulus Jacobian. This is the grid used for fitting,
+    ## commonly referred to as apof
+    Jac_dmod = ds**3.*np.log(10)/5.*(dmods[1]-dmods[0])
+    Jac_rad = (np.pi/180.)**2.
+    apogee_effSF_grid_inclArea_Jac = apogee_effSF_grid_inclArea \
+        * Jac_dmod * Jac_rad
 
     ## Apply the effective selection function grid mask
-    apof = apogee_effSF_grid_inclArea[apogee_effSF_mask]
+    apogee_effSF_grid_inclArea_Jac_mask = apogee_effSF_grid_inclArea_Jac[apogee_effSF_mask]
     Rgrid = Rgrid[apogee_effSF_mask]
     phigrid = phigrid[apogee_effSF_mask]
     zgrid = zgrid[apogee_effSF_mask]
     jkmins = jkmins[apogee_effSF_mask]
 
-    ## Include the distance modulus Jacobian
-    Jac_dmod = ds**3.*np.log(10)/5.*(dmods[1]-dmods[0])
-    Jac_rad = (np.pi/180.)**2.
-    apof = apof * Jac_dmod * Jac_rad
-    apogee_effSF_grid_inclArea_Jac = apogee_effSF_grid_inclArea * Jac_dmod * Jac_rad
-
     ## Combine effsel grids
     effsel_grid = [Rgrid,phigrid,zgrid]
     
-    out_main = [apogee_effSF_mask,dmap,iso_grid,jkmins,dmods,ds,effsel_grid,
-                apof,allstar_nomask,orbs_nomask]
-    out_other = [apogee_SF,apogee_effSF_grid_inclArea,apogee_effSF_grid_inclArea_Jac]
+    out_main = [apogee_effSF_mask,
+                dmap,
+                iso_grid,
+                jkmins,
+                dmods,
+                ds,
+                effsel_grid,
+                apogee_effSF_grid_inclArea_Jac_mask,
+                allstar_nomask,
+                orbs_nomask]
+    out_other = [apogee_SF,
+                 apogee_effSF_grid_inclArea,
+                 apogee_effSF_grid_inclArea_Jac]
     
     if return_other:
         return out_main,out_other
@@ -399,7 +486,6 @@ def lane2022_kinematic_selections(version='current'):
                      }
     print('Version of selection dictionary is: '+version)
     return selec_dict
-
 
 def line_intersects(ax,ay,bx,by):
     '''line_intersects:
