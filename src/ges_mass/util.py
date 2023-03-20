@@ -1279,3 +1279,30 @@ def load_distribution_functions(df_filename, betas, ):
         else:
             print('\nexcluding df['+str(i)+'] with beta='+str(_dfs[i]._beta))
     return dfs
+
+
+def vec_to_alt_az(vec,degrees=False):
+        '''vec_to_alt_az:
+        
+        Convert a vector in the GC frame to altitude and azimuth.
+
+        Alitude is measured from the x-y plane towards the z-axis, Azimuth 
+        is measured from the x-axis towards the y-axis.
+
+        Args:
+            vec (array) - Vector in GC frame [x,y,z]
+            degrees (bool) - If True, return alt,az in degrees, otherwise
+                return in radians
+        
+        Returns:
+            alt (float) - Altitude
+            az (float) - Azimuth
+        '''
+        x,y,z = vec
+        R = np.sqrt(x**2+y**2)
+        alt = np.arctan2(z,R)
+        az = np.arctan2(y,x)
+        if degrees:
+            alt = np.degrees(alt)
+            az = np.degrees(az)
+        return alt,az
