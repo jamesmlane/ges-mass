@@ -541,6 +541,50 @@ def plot_distmod_posterior(hf, pd=None, nrand=None, posterior_type='lines',
 
 # ----------------------------------------------------------------------------
 
+# Plotting utilities for GS/E paper functions
+
+def make_principal_axis(densfunc,params,x=None,y=None,z=None):
+    '''make_principal_axis:
+
+    Take the principal axis in the rotated frame and convert it to the 
+    galactocentric frame. Requires going in the opposite direction to the 
+    standard zvec+phi rotation.
+
+    Args:
+        densfunc (function) - Density function
+        params (array) - Parameters for density function, should already 
+            be de-normalized
+        x,y,z (array) - Arrays representing the x,y,z coordinates of the 
+            principle axis in the non-rotated frame. 
+            [default [-100,100],[0,0],[0,0]]
+        
+    Returns:
+        x,y,z (array) - Arrays representing the x,y,z coordinates of the 
+            principle axis in the rotated frame. 
+    '''
+    if x is None:
+        x = np.array([-100,100])
+    if y is None:
+        y = np.array([0,0])
+    if z is None:
+        z = np.array([0,0])
+    
+    # Get the parameters to make zvec from the densfunc and params
+    indx = pdens.get_densfunc_params_indx(densfunc,['theta','eta','phi'])
+    if len(params.shape) > 1:
+        theta,eta,phi = params.flatten()[indx]
+    else:
+        theta,eta,phi = params[indx]
+    # Transform the coordinates into the rotated frame
+    zvec = np.array([np.sqrt(1-eta**2)*np.cos(theta), 
+                     np.sqrt(1-eta**2)*np.sin(theta), 
+                     eta])
+    
+    xt,yt,zt = pdens.transform_zvecpa(np.dstack([x,y,z])[0],zvec,phi,inv=True)
+    return xt,yt,zt
+
+# ----------------------------------------------------------------------------
+
 # Plotting utilities for kinematic spaces
 
 def add_diamond_boundary(ax,dedge=1.2,zorder=7,draw_tick_fac=50):
