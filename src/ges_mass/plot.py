@@ -240,7 +240,8 @@ def plot_masses(hf,mass_in_log=True,quantiles=[0.16,0.5,0.84],show_titles=True,
     return fig
 
 
-def plot_density_xyz(hf,params=None,n=100,scale=20.,contour=False,imshow_kwargs={},
+def plot_density_xyz(hf,params=None,n=100,scale=20.,contour=False,
+                     show_sun=True,imshow_kwargs={},
                      contour_kwargs={},fig=None,axs=None):
     '''plot_density_xyz:
     
@@ -265,13 +266,15 @@ def plot_density_xyz(hf,params=None,n=100,scale=20.,contour=False,imshow_kwargs=
     '''
     # Default kwargs
     if imshow_kwargs == {}:
-        contour_kwargs = {'cmap':'rainbow', 'vmin':-1, 'vmax':3, 
+        imshow_kwargs = {'cmap':'rainbow', 'vmin':-1, 'vmax':3, 
                           'extent':(-scale,scale,-scale,scale), 
                           'origin':'lower'}
     if contour_kwargs == {}:
-        imshow_kwargs = {'levels':[0.,0.5,1.,1.5,2.,2.5,3.], 
-                         'extent':(-scale,scale,-scale,scale),
-                         'origin':'lower'}
+        contour_kwargs = {'levels':[-2.5,-2.,-1.5,-1.,-0.5,0.], 
+                          'extent':(-scale,scale,-scale,scale),
+                          'colors':'Black',
+                          'origin':'lower',
+                          'linestyles':'solid',}
     
     # Default params to a best-fit value
     if params is None:
@@ -324,12 +327,30 @@ def plot_density_xyz(hf,params=None,n=100,scale=20.,contour=False,imshow_kwargs=
         dgrid = hf.densfunc(Rgrid,phigrid,zgrid,params)
         
         if contour:
-            axs[i].contour(c1grid,c2grid,np.log10(dgrid), **contour_kwargs)
+            #import pdb; pdb.set_trace()
+            axs[i].contour(c1grid,c2grid,np.log10(dgrid),
+                           **contour_kwargs)
         else:
             axs[i].imshow(np.log10(dgrid), **imshow_kwargs)
         axs[i].set_xlabel(ind_str[i][0]+' [kpc]')
         axs[i].set_ylabel(ind_str[i][1]+' [kpc]')
-
+        axs[i].axhline(0,color='Black',linestyle='dashed')
+        axs[i].axvline(0,color='Black',linestyle='dashed')
+        if show_sun:
+            x_sun = 8.275
+            y_sun = 0.
+            z_sun = 0.0208
+            color_sun = 'DarkOrange'
+            if i == 0:
+                axs[i].scatter(x_sun, y_sun, color=color_sun, 
+                               marker=r'$\odot$',s=200, linewidths=2.)
+            if i == 1:
+                axs[i].scatter(x_sun, z_sun, color=color_sun, 
+                               marker=r'$\odot$',s=200, linewidths=2.)
+            if i == 2:
+                axs[i].scatter(y_sun, z_sun, color=color_sun, 
+                               marker=r'$\odot$',s=200, linewidths=2.)
+        
     fig.tight_layout()
     fig.show()
     
