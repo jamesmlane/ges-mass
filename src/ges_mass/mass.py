@@ -2697,17 +2697,37 @@ class MockHaloFit(_HaloFit):
 def _null_prior(densfunc,params):
     return 0
 
-def check_hf_versions(densfunc,selec,feh_range,fit_type,fit_dir):
+def check_hf_versions(hf=None,densfunc=None,selec=None,feh_range=None,
+                      fit_type=None,fit_dir=None):
     '''check_hf_versions:
     
-    For a given densfunc
+    Check the versions available for a given combination of densfunc, 
+    selec, feh_range, fit_type, fit_dir. If hf is supplied then take 
+    parameters from it.
     
     Args:
-    
+        hf (HaloFit) - HaloFit instance. Will look for all versions with same
+            densfunc, selec, feh_range, fit_type, fit_dir
+        
     Returns:
         versions (list) - List of version strings for given densfunc and 
             parameters
     '''
+    # Handle inputs
+    if hf is None:
+        ps = [densfunc,selec,feh_range,fit_type,fit_dir]
+        assert np.all([(p is not None) for p in ps]),\
+            'Must supply either hf or all of densfunc, selec, feh_range, '+\
+            'fit_type, fit_dir'
+    else:
+        print('HaloFit instance supplied, using densfunc, selec, feh_range, '+\
+              'fit_type, fit_dir from it')
+        densfunc = hf.densfunc
+        selec = hf.selec
+        feh_range = hf.feh_range
+        fit_type = hf.fit_type
+        fit_dir = hf.fit_dir
+    
     # Handle selec, assume it's a list, tuple, or array
     if isinstance(selec,(list,tuple,np.ndarray)):
         selec = selec[0]
@@ -2727,7 +2747,8 @@ def check_hf_versions(densfunc,selec,feh_range,fit_type,fit_dir):
     # Make the fit directory
     fit_data_dir = fit_dir+'data/'+fit_type+'/'+selec_str+str(feh_min)+\
         '_feh_'+str(feh_max)+'/'+densfunc.__name__+'/'
-    
+    print('Checking for versions in path: '+fit_data_dir)
+
     try:
         res = os.listdir(fit_data_dir)
         print(res)
