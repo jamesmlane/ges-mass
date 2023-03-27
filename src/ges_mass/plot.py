@@ -164,7 +164,7 @@ def plot_corner(hf,samples=None,plot_mass=False,thin=None,thin_to=None,
         print('thinning by factor '+str(thin))
         samples = samples[::thin,:]
     elif thin_to is not None:
-        thin = np.floor(n_samples/thin_to).astype(int)
+        thin = np.max([np.floor(n_samples/thin_to),1]).astype(int)
         print('thinning to N='+str(thin_to)+', thinning by factor '+str(thin))
         samples = samples[::thin,:]
     
@@ -178,6 +178,8 @@ def plot_corner(hf,samples=None,plot_mass=False,thin=None,thin_to=None,
                 pdens.denormalize_parameters(hf.truths,hf.densfunc))
         else:
             truth_values = hf.get_ml_params(truths)
+            truth_values = np.ravel(
+                pdens.denormalize_parameters(truth_values,hf.densfunc))
         if plot_mass: # Need to account for ml_ind for mass and other truths
             print('Truths for mass not yet implemented')
             truth_values.append(None)
