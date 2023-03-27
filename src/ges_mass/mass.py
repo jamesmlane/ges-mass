@@ -262,6 +262,16 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
     
     # Do MCMC
     print('Running MCMC with '+str(nprocs)+' processers')
+    if has_mcmc_diagnostic_file:
+        mcmc_start_txt = ('Running MCMC:'
+                          'date: '+str(datetime.datetime.now())+'\n'+\
+                          'nprocs: '+str(nprocs)+'\n'+\
+                          'nwalkers: '+str(nwalkers)+'\n'+\
+                          'nit: '+print_nit+'\n'+\
+                          'ncut: '+str(ncut)+'\n'+\
+                          '------------------------\n'
+                          )
+        mcmc_diagnostic_file.write(mcmc_start_txt)
     # with multiprocessing.Pool(nprocs) as pool:
     with multiprocessing.Pool(processes=nprocs, 
         initializer=_fit_dens_multiprocessing_init, initargs=(densfunc,
@@ -297,7 +307,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
             
             # Record MCMC diagnostics
             mcmc_diagnostic_txt = (
-                'sampled '+str(i+1)+'\n'\
+                'sampled '+str(i+1)+'\n'+\
                 'mean tau: '+str(mean_tau)+'\n'+\
                 'min nit/tau: '+str(nit_tau)+'\n'+\
                 '[min,max] delta tau: ['+\
@@ -307,7 +317,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
                 str(round(np.max(sampler.acceptance_fraction),2))+']\n'+\
                 'total max nit/tau '+str(max_nit_tau)+'\n'+\
                 '(nit/tau)/max[(nit/tau)] '+str(nit_tau/max_nit_tau)+'\n'+\
-                '---')
+                '---\n')
             print(mcmc_diagnostic_txt)
                 
             # print(mcmc_diagnostic_txt)
@@ -318,6 +328,10 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
             converged = np.all(tau * convergence_n_tau < sampler.iteration)
             converged &= np.all(np.abs(delta_tau) < convergence_delta_tau)
             if converged:
+                conv_stop_txt = 'Stopped because convergence criterion met'
+                print(conv_stop_txt)
+                if has_mcmc_diagnostic_file:
+                    mcmc_diagnostic_file.write('\n\n'+conv_stop_txt)
                 break
             
             # Check divergence
@@ -2103,6 +2117,29 @@ class _HaloFit:
         gc_vec = np.array([x,y,z]).T
 
         return gc_vec
+    
+    def print_mcmc_diagnostic_txt(self,return_txt=False):
+        '''print_mcmc_diagnostic_txt:
+        
+        Access the text file with the MCMC diagnostics and print it to the
+        screen
+
+        Args:
+            return_txt (bool) - If True, return the text as a string
+                [default False]
+        
+        Returns:
+            txt (str) - Text of the MCMC diagnostics
+        '''
+        _files = os.listdir(self.fit_data_dir)
+        if 'mcmc_diagnostics.txt' in _files:
+            with open(self.fit_data_dir+'mcmc_diagnostics.txt','r') as f:
+                txt = f.read()
+                print(txt)
+            if return_txt:
+                return txt
+        else:
+            print('mcmc_diagnostics.txt not found in dir: ',self.fit_data_dir)
 
     # Utils
     
