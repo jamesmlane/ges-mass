@@ -391,18 +391,26 @@ def _fit_dens_multiprocessing_init(_densfunc, _effsel, _Rgrid, _phigrid, _zgrid,
     usr_log_prior = _usr_log_prior
     
 
-def mass(hf, samples=None, n_star=None, n_mass=None, 
-         mass_int_type='spherical_grid', mass_analytic=False, int_r_range=None,
-         n_edge=[500,100,100], nprocs=None, batch=False, ro=_ro, zo=_zo, 
-         seed=0, verbose=None, _isofactors=None):
+def mass(hf, samples=None, n_star=None, n_mass=None, int_r_range=None,
+         **kwargs):
     '''mass:
     
     Lightweight wrapper of mass_from_density_samples to be used when supplying
-    HaloFit object, which can account for many other 
+    HaloFit object, which can account for many supplementary inputs.
     
     Args:
-        hf (HaloFit) - 
-        samples (np.ndarray) - 
+        hf (HaloFit) - HaloFit class containing all relevant information
+        samples (np.ndarray) - Shape (n_samples, n_params) array of samples
+            [default: None, which uses samples from hf]
+        n_star (int) - Number of stars in sample [default: None, which uses
+            n_star from hf]
+        n_mass (int) - Number of masses to calculate [default: None, which
+            uses n_mass from hf]
+        mass_int_type (str) - Type of mass integration to use. Options are:
+            'spherical_grid' - Spherical grid integration
+        int_r_range (list) - Range of radii to integrate over [default: None,
+            which uses int_r_range from hf]
+        kwargs (dict) - Keyword arguments to pass to mass_from_density_samples
     '''
     # Handle optional inputs
     if samples is None:
@@ -435,9 +443,7 @@ def mass(hf, samples=None, n_star=None, n_mass=None,
     out = mass_from_density_samples(samples=samples, densfunc=densfunc, 
         n_star=n_star, effsel=effsel, effsel_grid=effsel_grid, iso=iso,
         feh_range=feh_range, logg_range=logg_range, jkmins=jkmins,
-        n_mass=n_mass, mass_int_type=mass_int_type, mass_analytic=mass_analytic,
-        int_r_range=int_r_range, n_edge=n_edge, nprocs=nprocs, batch=batch, 
-        ro=ro, zo=zo, seed=seed, verbose=verbose, _isofactors=_isofactors)
+        n_mass=n_mass, int_r_range=int_r_range, **kwargs)
     return out
 
     
