@@ -2129,6 +2129,25 @@ class _HaloFit:
             if res in [None,'']:    
                 print('warning: attribute '+str(a)+' not set')
         return None
+
+    def _validate_version_params_base(self):
+        '''_validate_version_params_base:
+
+        Hardcode some version checks into the code to make sure that when the 
+        .version keyword is used that other parameters are set correctly. This 
+        is the base version of the function that is called by the 
+        _validate_version_params() function in the child classes.
+
+        Returns:
+            None
+        
+        Raises:
+            Warning if version does not correspond to parameters
+        '''
+        if self.version == 'tau50':
+            if self.nit*self.nwalkers < 1e6:
+                print('''warning: version is tau50 and total number of samples 
+                         < 1e6''')
         
         
 
@@ -2448,6 +2467,7 @@ class HaloFit(_HaloFit):
         '''
         if self.verbose:
             print('Setting densfunc to: '+densfunc.__name__)
+            print('Version is: '+self.version)
         # Set the densfunc
         self.densfunc=densfunc
         
