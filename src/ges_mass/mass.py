@@ -20,6 +20,7 @@ import dill as pickle
 import itertools
 import emcee
 from tqdm.notebook import tqdm
+import datetime
 import warnings
 import scipy.optimize
 from scipy.stats import norm
@@ -672,6 +673,8 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                 masses[i,1] = np.sum(diskdens*deltafactor)
                 masses[i,2] = np.sum(fulldens*deltafactor)
             else:
+                # This is the most time consuming part of the mass calculation,
+                # takes about 1 second total, about 94% of the time
                 denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],
                                     Rphizgrid[:,2], params=params)*fac
                 masses[i] =  np.sum(denstxyz*deltafactor)
@@ -798,9 +801,9 @@ def _calc_mass_batch(params, densfunc, n_star, effsel, effsel_grid, isofactors,
             denstxyz = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
                                 params=params[i], split=True)
             halodens = denstxyz[0]*facs[i]
-            diskdens = denstxyz[1]*facs[i]
-            fulldens = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
-                             params=params[i])*facs[i]
+            #diskdens = denstxyz[1]*facs[i]
+            #fulldens = densfunc(Rphizgrid[:,0],Rphizgrid[:,1],Rphizgrid[:,2], 
+            #                 params=params[i])*facs[i]
             masses[i] = np.sum(halodens*deltafactor)
             #masses[i,0] = np.sum(halodens*deltafactor)
             #masses[i,1] = np.sum(diskdens*deltafactor)
@@ -928,15 +931,18 @@ def fdisk_to_number_of_stars(hf,samples=None,nprocs=1):
     hasEffVol = hasattr(hf,'effvol_halo') and hasattr(hf,'effvol_disk')
     n_star = hf.n_star
 
-    # Calculate the effective volume for both profiles
-    for i in tqdm(range(n_samples)):
-        dens_halo,dens_disk = hf.densfunc(Rgrid, phigrid, zgrid, 
-            params=samples[i], split=True)
-        vol_halo = np.sum(dens_halo*effsel)
-        vol_disk = np.sum(dens_disk*effsel)
-        vol_tot = vol_halo+vol_disk
-        n_star_halo[i] = n_star*vol_halo/vol_tot
-        n_star_disk[i] = n_star*vol_disk/vol_tot
+    if hasEffVol:
+        print('Pre-computed effective volume not yet implemented!')
+    else:
+        # Calculate the effective volume for both profiles
+        for i in tqdm(range(n_samples)):
+            dens_halo,dens_disk = hf.densfunc(Rgrid, phigrid, zgrid, 
+                params=samples[i], split=True)
+            vol_halo = np.sum(dens_halo*effsel)
+            vol_disk = np.sum(dens_disk*effsel)
+            vol_tot = vol_halo+vol_disk
+            n_star_halo[i] = n_star*vol_halo/vol_tot
+            n_star_disk[i] = n_star*vol_disk/vol_tot
     
     return n_star_halo,n_star_disk
 
@@ -2164,6 +2170,10 @@ class _HaloFit:
         for a in attrs:
             res = getattr(self,a)
             if isinstance(res,np.ndarray):
+                continue
+            if (a == 'selec' or a == 'selec_arr')\
+                and (not hasattr(self,'fit_type') or\
+                     getattr(self,'fit_type') == 'all'):
                 continue
             if a == 'iso' and getattr(self,'iso_filename') not in [None,'']:
                 continue
