@@ -2493,6 +2493,34 @@ class HaloFit(_HaloFit):
         else:
             self.usr_log_prior = _null_prior    
 
+    # Utils
+
+    def _validate_version_params(self):
+        '''Hardcode some version checks into the code to make sure that when the 
+        .version keyword is used that other parameters are set correctly. This 
+        is the base version of the function that is called by the 
+        _validate_version_params() function in the child classes.
+
+        Returns:
+            None
+        
+        Raises:
+            Warning if version does not correspond to parameters
+        '''
+        self._validate_version_params_base()
+        if 'ksf' in self.version and 'v2.01' in self.version:
+            if 'v2.01' not in self.ksf_dir:
+                print('''warning: suggested ksf version is v2.01, but
+                      v2.01 not in ksf_dir''')
+        if 'ksf' in self.version and 'v2.02' not in self.version:
+            if 'v2.02' not in self.ksf_dir:
+                print('''warning: suggested ksf version is v2.02, but
+                      v2.02 not in ksf_dir''')
+        if 'ksf' in self.version and 'v2.03' not in self.version:
+            if 'v2.03' not in self.ksf_dir:
+                print('''warning: suggested ksf version is v2.03, but
+                      v2.03 not in ksf_dir''')
+
 class MockHaloFit(_HaloFit):
     '''MockHaloFit:
     '''
