@@ -108,7 +108,7 @@ def Rphiz_to_xyz(R,phi,z):
 
 def plot_corner(hf,samples=None,plot_mass=False,thin=None,thin_to=None,
                 quantiles=[0.16,0.5,0.84],show_titles=True,corner_kwargs={}, 
-                truths='None'):
+                truths='None',mass_in_log=True):
     '''plot_corner:
     
     Plot posterior samples
@@ -142,12 +142,15 @@ def plot_corner(hf,samples=None,plot_mass=False,thin=None,thin_to=None,
     
     # Including mass or not?
     if plot_mass:
-        masses = np.masses
-        if np.median(masses)>_MEDIAN_MASS_FOR_1E8:
+        masses = hf.masses
+        if np.median(masses)>_MEDIAN_MASS_FOR_1E8 and not mass_in_log:
             masses /= 1e8
             mcmc_labels.append(r'M $[10^{8} \textrm{M}_{\odot}]$')
+        elif mass_in_log:
+            masses = np.log10(masses)
+            mcmc_labels.append(r'$\log_{10}$(mass / $\textrm{M}_{\odot}$)')
         else:
-            mcmc_labels.append(r'M $[\textrm{M}_{\odot}]$')
+            mcmc_labels.append(r'mass $[\textrm{M}_{\odot}]$')
             
         if len(masses) == samples.shape[0]:
             samples = np.concatenate((samples,np.atleast_2d(masses).T),axis=1)
@@ -174,15 +177,22 @@ def plot_corner(hf,samples=None,plot_mass=False,thin=None,thin_to=None,
         if truths == 'mock_truths':
             if hf.truths is None:
                 print('mock truths requested, but hf.truths is None')                
-            truth_values = np.ravel(
-                pdens.denormalize_parameters(hf.truths,hf.densfunc))
+            truth_values = hf.get_truths(normed=False,theta_in_deg=False,
+                phi_in_deg=False)
         else:
             truth_values = hf.get_ml_params(truths)
             truth_values = np.ravel(
                 pdens.denormalize_parameters(truth_values,hf.densfunc))
         if plot_mass: # Need to account for ml_ind for mass and other truths
-            print('Truths for mass not yet implemented')
-            truth_values.append(None)
+            if hasattr(hf,'truth_mass'):
+                truth_mass = hf.truth_mass
+            else:
+                print('This truth type not yet implemented for masses!')
+            if truth_mass > _MEDIAN_MASS_FOR_1E8 and not mass_in_log:
+                truth_mass /= 1e8
+            elif mass_in_log:
+                truth_mass = np.log10(truth_mass)
+            truth_values = np.append(truth_values,truth_mass)
         if 'truths' not in _corner_kwargs.keys():
             _corner_kwargs.update({'truths':truth_values})
         else:
