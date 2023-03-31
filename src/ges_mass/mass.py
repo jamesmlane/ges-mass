@@ -3186,7 +3186,7 @@ def mock_to_hf(mock_path,dfs,mixture_arr,aAS,pot,
         del hf_kwargs['mask_halo']
 
     # Load the mock
-    print('Loading halo mock...')
+    print('Loading halo mock from: '+str(mock_path))
     if mock_path[-1] != '/':
         mock_path += '/'
     orbs_filename = mock_path+'orbs.pkl'
