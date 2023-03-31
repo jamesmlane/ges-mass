@@ -962,7 +962,7 @@ def triaxial_single_angle_zvecpa(R,phi,z,params=[2.,0.5,0.5,0.01,0.99,0.01]):
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     alpha,p,q,theta,eta,pa = denormalize_parameters(
-        params, triaxial_single_angle_zvecpa)[0]
+        params, triaxial_single_angle_zvecpa)
     R,phi,z,grid,dim = check_grid(R,phi,z)
     r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
     
@@ -1002,7 +1002,7 @@ def triaxial_single_cutoff_zvecpa(
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     alpha,r1,p,q,theta,eta,pa = denormalize_parameters(
-        params, triaxial_single_cutoff_zvecpa)[0]
+        params, triaxial_single_cutoff_zvecpa)
     R,phi,z,grid,dim = check_grid(R,phi,z)
     r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
     
@@ -1042,7 +1042,7 @@ def triaxial_single_cutoff_zvecpa_inv(
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     alpha,beta1,p,q,theta,eta,pa = denormalize_parameters(
-        params, triaxial_single_cutoff_zvecpa_inv)[0]
+        params, triaxial_single_cutoff_zvecpa_inv)
     R,phi,z,grid,dim = check_grid(R,phi,z)
     r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
     
@@ -1083,7 +1083,7 @@ def triaxial_broken_angle_zvecpa(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     alpha_in,alpha_out,r1,p,q,theta,eta,pa = denormalize_parameters(
-        params, triaxial_broken_angle_zvecpa)[0]
+        params, triaxial_broken_angle_zvecpa)
     R,phi,z,grid,dim = check_grid(R,phi,z)
     r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
     
@@ -1132,7 +1132,7 @@ def triaxial_broken_angle_zvecpa_inv(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     alpha_in,alpha_out,beta1,p,q,theta,eta,pa = denormalize_parameters(
-        params, triaxial_broken_angle_zvecpa_inv)[0]
+        params, triaxial_broken_angle_zvecpa_inv)
     r1 = 1./beta1
     R,phi,z,grid,dim = check_grid(R,phi,z)
     r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
@@ -1186,7 +1186,7 @@ def triaxial_double_broken_angle_zvecpa(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     alpha_in,alpha_mid,alpha_out,r1,r2,p,q,theta,eta,pa = denormalize_parameters(
-        params, triaxial_double_broken_angle_zvecpa)[0]
+        params, triaxial_double_broken_angle_zvecpa)
     R,phi,z,grid,dim = check_grid(R,phi,z)
     r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
 
@@ -1239,7 +1239,7 @@ def triaxial_single_trunc_zvecpa(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     alpha,r1,p,q,theta,eta,pa = denormalize_parameters(
-        params, triaxial_single_trunc_zvecpa)[0]
+        params, triaxial_single_trunc_zvecpa)
     R,phi,z,grid,dim = check_grid(R,phi,z)
     r_e,r_e_sun = make_zvec_r_e(R,phi,z,p,q,theta,eta,pa)
     
@@ -1309,7 +1309,7 @@ def triaxial_single_angle_zvecpa_plusexpdisk(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     fdisk = denormalize_parameters(
-        params, triaxial_single_angle_zvecpa_plusexpdisk)[0][-1]
+        params, triaxial_single_angle_zvecpa_plusexpdisk)[-1]
     dens = triaxial_single_angle_zvecpa(R,phi,z,params=params[:-1])
     hr,hz = get_default_thick_disk_params()
     diskdens = exp_disk(R,phi,z,[hr,hz])
@@ -1351,7 +1351,7 @@ def triaxial_single_cutoff_zvecpa_plusexpdisk(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     fdisk = denormalize_parameters(
-        params, triaxial_single_cutoff_zvecpa_plusexpdisk)[0][-1]
+        params, triaxial_single_cutoff_zvecpa_plusexpdisk)[-1]
     dens = triaxial_single_cutoff_zvecpa(R,phi,z,params=params[:-1])
     hr,hz = get_default_thick_disk_params()
     diskdens = exp_disk(R,phi,z,[hr,hz])
@@ -1393,7 +1393,7 @@ def triaxial_broken_angle_zvecpa_plusexpdisk(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     fdisk = denormalize_parameters(
-        params, triaxial_broken_angle_zvecpa_plusexpdisk)[0][-1]
+        params, triaxial_broken_angle_zvecpa_plusexpdisk)[-1]
     dens = triaxial_broken_angle_zvecpa(R,phi,z,params=params[:-1])
     hr,hz = get_default_thick_disk_params()
     diskdens = exp_disk(R,phi,z,[hr,hz])
@@ -1440,7 +1440,7 @@ def triaxial_double_broken_angle_zvecpa_plusexpdisk(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     fdisk = denormalize_parameters(
-        params, triaxial_double_broken_angle_zvecpa_plusexpdisk)[0][-1]
+        params, triaxial_double_broken_angle_zvecpa_plusexpdisk)[-1]
     dens = triaxial_double_broken_angle_zvecpa(R,phi,z,params=params[:-1])
     hr,hz = get_default_thick_disk_params()
     diskdens = exp_disk(R,phi,z,[hr,hz])
@@ -1482,7 +1482,7 @@ def triaxial_single_trunc_zvecpa_plusexpdisk(R,phi,z,
         dens (np.array) - density at coordinates (normalized to 1 at _ro,_zo)
     '''
     fdisk = denormalize_parameters(
-        params, triaxial_single_trunc_zvecpa_plusexpdisk)[0][-1]
+        params, triaxial_single_trunc_zvecpa_plusexpdisk)[-1]
     dens = triaxial_single_trunc_zvecpa(R,phi,z,params=params[:-1])
     hr,hz = get_default_thick_disk_params()
     diskdens = exp_disk(R,phi,z,[hr,hz])
