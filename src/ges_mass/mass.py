@@ -2715,6 +2715,7 @@ class MockHaloFit(_HaloFit):
                  iso_age=None,
                  truths=None,
                  truth_mass=None,
+                 truths_normed=False,
                  # _HaloFit parameters
                  densfunc=None,
                  selec=None,
@@ -2804,6 +2805,7 @@ class MockHaloFit(_HaloFit):
         # Mock truths
         self.truths = truths
         self.truth_mass = truth_mass
+        self.truths_normed = truths_normed
 
         # Single isochrone properties for mock
         self.iso_feh = iso_feh
@@ -2869,7 +2871,7 @@ class MockHaloFit(_HaloFit):
         if init_type == 'default':
             init = pdens.get_densfunc_mcmc_init_uninformed(densfunc)
         if init_type == 'truths':
-            init = truths
+            init = self.get_truths(normed=True)
         self.init = init
 
         # if init_type is not None:
@@ -2900,6 +2902,30 @@ class MockHaloFit(_HaloFit):
         elif self.fit_type in ['mock','mock+disk']:
             return self.effsel
 
+    def get_truths(self,normed=False,theta_in_deg=False,phi_in_deg=False):
+        '''get_truths:
+
+        Return the truths for the fit
+        '''
+        if self.truths is None:
+            raise ValueError('No truths set for this fit')
+        if normed: # Ignore radians and degrees
+            if self.truths_normed:
+                return self.truths
+            else:
+                return pdens.normalize_parameters(self.truths,self.densfunc)
+        else:
+            if self.truths_normed:
+                _ts =  pdens.denormalize_parameters(self.truths,self.densfunc)
+            else:
+                _ts = self.truths[:]
+            theta_indx,phi_indx = pdens.get_densfunc_params_indx(self.densfunc,
+                ['theta','phi'])
+            if theta_in_deg:
+                _ts[theta_indx] = np.rad2deg(_ts[theta_indx])
+            if phi_in_deg:
+                _ts[phi_indx] = np.rad2deg(_ts[phi_indx])
+            return _ts
 
 # Null prior for class
 def _null_prior(densfunc,params):
