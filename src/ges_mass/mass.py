@@ -20,6 +20,7 @@ import dill as pickle
 import itertools
 import emcee
 from tqdm.notebook import tqdm
+import time
 import datetime
 import warnings
 import scipy.optimize
@@ -250,7 +251,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
         print_nit = 'inf'
     else:
         print_nit = str(nit)
-    autocorr_n = 200 # Interval between checking autocorrelation criterion
+    autocorr_n = 500 # Interval between checking autocorrelation criterion
     allow_dvrgnt = True
     autocorr = np.zeros(0)
     old_tau = np.inf
@@ -288,6 +289,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
         
         # Draw samples
         print('Generating MCMC samples...')
+        t0 = time.time()
         for i, result in enumerate(sampler.sample(pos, iterations=nit)):
             # Progress
             if (i+1)%10 == 0: print('sampled '+str(i+1)+'/'+print_nit+\
@@ -307,10 +309,18 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
             mean_tau = np.mean(tau)
             max_nit_tau = np.max([nit_tau,max_nit_tau])
             
+            # Estimate time remaining
+            t1 = time.time()
+            t_per_sample = (t1-t0)/(i+1)
+            t_remaining = t_per_sample*(nit-i-1)
+            t_remaining_str = str(datetime.timedelta(seconds=t_remaining))
+            
+
             # Record MCMC diagnostics
             mcmc_diagnostic_txt = (
                 'sampled '+str(i+1)+'\n'+\
                 'mean tau: '+str(mean_tau)+'\n'+\
+                'mean nit/tau: '+str(sampler.iteration/mean_tau)+'\n'+\
                 'min nit/tau: '+str(nit_tau)+'\n'+\
                 '[min,max] delta tau: ['+\
                 str(np.min(delta_tau))+','+str(np.max(delta_tau))+']\n'+\
@@ -319,6 +329,7 @@ def fit_dens(densfunc, effsel, effsel_grid, data, init, nprocs, nwalkers,
                 str(round(np.max(sampler.acceptance_fraction),2))+']\n'+\
                 'total max nit/tau '+str(max_nit_tau)+'\n'+\
                 '(nit/tau)/max[(nit/tau)] '+str(nit_tau/max_nit_tau)+'\n'+\
+                'estimated time remaining: '+t_remaining_str+'\n'+\
                 '---\n')
             print(mcmc_diagnostic_txt)
                 
