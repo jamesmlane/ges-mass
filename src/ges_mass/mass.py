@@ -38,7 +38,7 @@ _ro = 8.275 # Gravity Collab.
 _zo = 0.0208 # Bennett and Bovy
 
 # _PRIOR_ETA_MIN = 1/np.sqrt(2) -> 45 degrees
-_PRIOR_ETA_MIN = 0.
+_PRIOR_ETA_MIN = 0.5
 
 # ----------------------------------------------------------------------------
 
@@ -463,7 +463,7 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                               iso, feh_range, logg_range, jkmins, n_mass=400,
                               mass_int_type='spherical_grid', 
                               mass_analytic=False, int_r_range=[2.,70.], 
-                              n_edge=[500,100,100], nprocs=None, batch=False, 
+                              n_edge=[50,25,25], nprocs=None, batch=False, 
                               ro=_ro, zo=_zo, seed=0, verbose=True, 
                               _isofactors=None):
     '''mass_from_density_samples:
