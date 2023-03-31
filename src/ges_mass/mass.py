@@ -2021,6 +2021,101 @@ class _HaloFit:
             
         return isofactors
     
+
+    def calculate_masses(self,samples=None,n_mass=None,nprocs=1,
+                         mass_int_type='spherical_grid',batch_masses=True,
+                         save_results=False,overwrite=False,set_results=False,
+                         return_results=True,verbose=None):
+        '''calculate_masses:
+
+        Calculate the masses of the density profiles described by the samples
+        of the HaloFit class as well as the supplied effective selection
+        function and stellar information.
+
+        Args:
+            samples (array) - Samples of density profile parameters of shape
+                (n_samples, n_params). If none then will use self.samples
+            n_mass (int) - Number of masses to calculate. Must be 
+                less than or equal to the number of samples. If none then will
+                use self.n_mass. Note that this may means that not all samples
+                are used.
+            nprocs (int) - Number of processes to use for multiprocessing
+                [default: 1]
+            mass_int_type (str) - Type of mass integration to use. [default:
+                'spherical_grid']
+            batch_masses (bool) - Whether to batch the mass calculations
+                [default: True]
+            save_results (bool) - Whether to save the results to file
+                [default: True]
+            overwrite (bool) - Whether to overwrite existing files [default:
+                False]
+            set_results (bool) - Whether to set the results as attributes of
+                the class [default: True]
+            return_results (bool) - Whether to return the results [default:
+                True]
+
+        Returns (optional):
+            masses (array) - Masses of the density profiles
+            facs (array) - Factors used to convert number -> mass
+            mass_inds (array) - Indices of the samples used to calculate the
+                masses
+            isofactors (array) - Isochrone factors used to convert number of 
+                red giant stars to mass of the whole stellar population
+        
+        Sets: (optional):
+            self.masses -> masses
+            self.facs -> facs
+            self.mass_inds -> mass_inds
+            self.isofactors -> isofactors
+        '''
+        # Check overwrite and whether files exist before even starting
+        _files_to_check = [self.fit_data_dir+f for f in \
+            ['masses.npy','facs.npy','mass_inds.npy','isofactors.npy']]
+        _files_exist = np.any([os.path.exists(f) for f in _files_to_check])
+        if save_results and not overwrite and _files_exist:
+            raise ValueError('Files already exist and overwrite not set to True')
+        
+        # Handle samples
+        if samples is None:
+            if self.verbose:
+                print('samples not supplied, using self.samples.')
+            samples = self.samples
+
+        # Handle number of masses
+        if n_mass is None:
+            if self.verbose:
+                print('n_masses not supplied, using self.n_masses.')
+            n_mass = self.n_mass
+
+        # Calculate mass
+        if self.verbose:
+            print('Calculating masses')
+        out_mass = mass_from_density_samples(samples=np.atleast_2d(samples), 
+            densfunc=self.densfunc, n_star=self.n_star, 
+            effsel=self.get_fit_effsel(), effsel_grid=self.get_effsel_list(), 
+            iso=self.get_iso(), feh_range=self.feh_range, 
+            logg_range=self.logg_range, jkmins=self.jkmins, n_mass=n_mass, 
+            mass_int_type=mass_int_type, int_r_range=self.int_r_range, 
+            nprocs=nprocs, batch=batch_masses, ro=self.ro, zo=self.zo)
+        masses, facs, mass_inds, isofactors = out_mass
+
+        if save_results:
+            if self.verbose:
+                print('Saving results to: '+self.fit_data_dir)
+            np.save(self.fit_data_dir+'masses.npy',masses)
+            np.save(self.fit_data_dir+'facs.npy',facs)
+            np.save(self.fit_data_dir+'mass_inds.npy',mass_inds)
+            np.save(self.fit_data_dir+'isofactors.npy',isofactors)
+        
+        if set_results:
+            self.masses = masses
+            self.facs = facs
+            self.mass_inds = mass_inds
+            self.isofactors = isofactors
+
+        if return_results:
+            return masses, facs, mass_inds, isofactors
+
     def run_optimization(self,init=None,method='Powell',optimizer_kwargs={}):
         '''run_optimization:
         
