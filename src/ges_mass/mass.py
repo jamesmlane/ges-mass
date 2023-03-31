@@ -656,7 +656,7 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
             print('Processing masses in serial')
         for i,params in enumerate(samples_randind):
             if verbose:
-                if (i+1)%10 == 0: print('sampled '+str(i+1)+'/'+str(n_mass), 
+                if (i+1)%10 == 0: print('calculated '+str(i+1)+'/'+str(n_mass), 
                                         end='\r')
             rate = densfunc(Rgrid,phigrid,zgrid,params=params)*effsel
             sumrate = np.sum(rate.T/isofactors)
