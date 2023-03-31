@@ -40,6 +40,10 @@ def normalize_parameters(params,model):
         params (list) - Normalized density function parameters
     '''
     # params should be 2d for indexing
+    params = np.array(params)
+    _input_is_1d = False
+    if len(params.shape) == 1:
+        _input_is_1d = True
     params = np.atleast_2d(params)
     
     # Non-rotated density profiles have trivial transformations
@@ -117,7 +121,11 @@ def normalize_parameters(params,model):
         params_out = np.concatenate((params_out,
                                      np.atleast_2d(params[:,-1]).T),
                                     axis=1)
-        
+    
+    # Flatten if input is 1D
+    if _input_is_1d:
+        params_out = params_out.flatten()
+
     return params_out
 
 def denormalize_parameters(params,model,theta_in_degr=False,phi_in_degr=False):
@@ -146,6 +154,10 @@ def denormalize_parameters(params,model,theta_in_degr=False,phi_in_degr=False):
         _phi_scale *= rad_to_degr
     
     # params should be 2d for indexing
+    params = np.array(params)
+    _input_is_1d = False
+    if len(params.shape) == 1:
+        _input_is_1d = True
     params = np.atleast_2d(params)
     
     # Non-rotated density profiles have trivial transformations
@@ -223,6 +235,10 @@ def denormalize_parameters(params,model,theta_in_degr=False,phi_in_degr=False):
                                      np.atleast_2d(params[:,-1]).T),
                                     axis=1)
     
+    # Flatten if input is 1D
+    if _input_is_1d:
+        params_out = params_out.flatten()
+
     return params_out
 
 
