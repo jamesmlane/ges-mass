@@ -34,7 +34,7 @@ Rgrid,phigrid,zgrid = effsel_grid
 
 # ## Load the distribution functions
 # df_filename = df_dir+'dfs.pkl'
-# betas = [0.3,0.8]
+# betas = [0.3,0.9]
 # dfs = putil.load_distribution_functions(df_filename, betas)
 
 # ## Load the APOGEE field information, can also similarly load 
