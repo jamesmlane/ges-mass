@@ -1491,6 +1491,14 @@ def triaxial_single_trunc_zvecpa_plusexpdisk(R,phi,z,
     else:
         return (1-fdisk)*dens+fdisk*diskdens
 
+_densfuncs = [triaxial_single_angle_zvecpa,
+              triaxial_single_angle_zvecpa_plusexpdisk,
+              triaxial_single_cutoff_zvecpa,
+              triaxial_single_cutoff_zvecpa_plusexpdisk,
+              triaxial_broken_angle_zvecpa,
+              triaxial_broken_angle_zvecpa_plusexpdisk,
+              triaxial_double_broken_angle_zvecpa,
+              triaxial_double_broken_angle_zvecpa_plusexpdisk,]
 
 # def triaxial_single_angle_aby(R,phi,z,params=[2.,0.5,0.5,0.5,0.5,0.5]):
 #     '''triaxial_single_angle_aby:
