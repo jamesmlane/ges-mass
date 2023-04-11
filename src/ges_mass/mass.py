@@ -2251,15 +2251,15 @@ class _HaloFit:
         
         # Make sure relevant variables are set
         if ml_type == 'mcmc_ml':
-            mll = -np.abs(np.max(self.loglike))
+            mll = np.max(self.loglike)
         elif ml_type == 'post':
             if not self.opt_post.success:
                 print('warning: post optimization was not successful')
-            mll = -np.abs(self.opt_post.fun)
+            mll = -self.opt_post.fun # Opt minimizes -loglike
         elif ml_type == 'init':
             if not self.opt_init.success:
                 print('warning: initial optimization was not successful')
-            mll = -np.abs(self.opt_init.fun)
+            mll = -self.opt_init.fun # Opt minimizes -loglike
         
         aic = 2*n_param - 2*mll
         bic = np.log(n_star)*n_param - 2*mll
