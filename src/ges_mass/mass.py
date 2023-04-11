@@ -3001,7 +3001,8 @@ def _null_prior(densfunc,params):
     return 0
 
 def check_hf_versions(hf=None,densfunc=None,selec=None,feh_range=None,
-                      fit_type=None,fit_dir=None):
+                      fit_type=None,fit_dir=None,return_versions=False,
+                      print_versions=True):
     '''check_hf_versions:
     
     Check the versions available for a given combination of densfunc, 
@@ -3011,6 +3012,13 @@ def check_hf_versions(hf=None,densfunc=None,selec=None,feh_range=None,
     Args:
         hf (HaloFit) - HaloFit instance. Will look for all versions with same
             densfunc, selec, feh_range, fit_type, fit_dir
+        densfunc (callable) - Density function, takes (params,R,phi,z)
+        selec (str) - Selection version, 'eLz', 'AD', or 'JRLz'
+        feh_range (list) - [feh_min,feh_max] for selection
+        fit_type (str) - fit type e.g. 'gse' or 'all'
+        fit_dir (str) - Top level directory for data products
+        return_versions (bool) - Return versions
+        print_versions (bool) - Print versions
         
     Returns:
         versions (list) - List of version strings for given densfunc and 
@@ -3054,7 +3062,10 @@ def check_hf_versions(hf=None,densfunc=None,selec=None,feh_range=None,
 
     try:
         res = os.listdir(fit_data_dir)
-        print(res)
+        if print_versions:
+            print(res)
+        if return_versions:
+            return res
     except FileNotFoundError:
         print('warning: path does not exist, path: '+str(fit_data_dir))
 
