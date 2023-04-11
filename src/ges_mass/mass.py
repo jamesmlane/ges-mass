@@ -903,7 +903,8 @@ def double_exponential_disk_cylindrical_mass(hR,hz,Rmin,Rmax,zmax,A=1.):
     return A*m
 
 
-def fdisk_to_number_of_stars(hf,samples=None,nprocs=1):
+def fdisk_to_number_of_stars(hf,samples=None,load_blobbed_effvol=True,
+                             effvol_halo=None,effvol_disk=None,indx=None):
     '''fdisk_to_number_of_stars:
     
     Convert fdisk to number of halo and disk stars in the sample
@@ -911,39 +912,77 @@ def fdisk_to_number_of_stars(hf,samples=None,nprocs=1):
     Args:
         hf (HaloFit) - HaloFit class containing all information about fit
         samples (array) - MCMC samples, shape is (nsample,ndim)
-        nprocs (int) - Number of processors to use [default 1]
+        load_blobbed_effvol (bool) - Use blobbed effective volume from the 
+            sampler object if possible.
+        effvol_halo (array) - Effective volume for halo stars, shape is 
+            (nsample)
+        effvol_disk (array) - Effective volume for disk stars, shape is
+            (nsample)
+        indx (array) - Index of samples to use. If None, use all samples.
     
     Returns:
         n_halo (int) - Number of halo stars
         n_disk (int) - Number of disk stars
     '''
+    _loaded_samples = False
+    _loaded_blobbed_effvol = False
+    _has_effvol = False
+    assert not ((effvol_halo is not None)^(effvol_disk is not None)),\
+        'Must supply both effvol_halo and effvol_disk'
     if samples is None:
+        print('Did not provide samples, using all samples from HaloFit object')
+        _loaded_samples = True
         if hf.samples is None:
             hf.get_results()
             assert hf.samples is not None,\
                 'No samples in supplied HaloFit instance, tried get_results()'
         samples = hf.samples
+    if load_blobbed_effvol:
+        if not _loaded_samples:
+            print('Not loading blobbed effective volume because samples were'+
+                  ' supplied, no way to find correspondance between loaded'+
+                  ' effvol and samples. Supply corresponding effvol_halo and'+
+                  ' effvol_disk.')
+        else:
+            _loaded_blobbed_effvol = True
+            _has_effvol = True
+            if hf.effvol_halo is None or hf.effvol_disk is None:
+                hf.get_results(load_blobbed_effvol=True)
+                assert hf.effvol_halo is not None\
+                    and hf.effvol_disk is not None,\
+                    'No blobbed effective volume in supplied HaloFit '+\
+                    ' instance, tried get_results(load_blobbed_effvol=True)'
+            effvol_halo = hf.effvol_halo
+            effvol_disk = hf.effvol_disk
+    if effvol_disk is not None:
+        _has_effvol = True
+        if _loaded_blobbed_effvol:
+            print('Not using supplied effvol because loaded blobbed effvol')
+    if indx is not None:
+        print('indx was supplied, applying to samples and effvol')
+        samples = samples[indx]
+        if _has_effvol:
+            effvol_halo = effvol_halo[indx]
+            effvol_disk = effvol_disk[indx]
 
     samples = np.atleast_2d(samples)
     n_samples = samples.shape[0]
-    n_star_halo = np.zeros(n_samples,dtype=int)
-    n_star_disk = np.zeros(n_samples,dtype=int)
+    n_star_halo = np.zeros(n_samples)
+    n_star_disk = np.zeros(n_samples)
     
-    assert 'plusexpdisk' in hf.densfunc.__name__,\
+    assert ('plusexpdisk' in hf.densfunc.__name__),\
         'densfunc must have disk contamination (plusexpdisk) to have fdisk'
     
-    # Unpack min and max for [Fe/H], logg, effective selection function grid,
-    # (kinematic) effective selection function
-    feh_min, feh_max = hf.feh_range
-    logg_min, logg_max = hf.logg_range
-    Rgrid,phigrid,zgrid = hf.get_effsel_list()
-    effsel = hf.get_fit_effsel()
-    
-    hasEffVol = hasattr(hf,'effvol_halo') and hasattr(hf,'effvol_disk')
+    # Unpack effective selection function and effective selection function grid
+    if not _has_effvol:
+        Rgrid,phigrid,zgrid = hf.get_effsel_list()
+        effsel = hf.get_fit_effsel()
     n_star = hf.n_star
 
-    if hasEffVol:
-        print('Pre-computed effective volume not yet implemented!')
+    if _has_effvol:
+        vol_tot = effvol_halo + effvol_disk
+        n_star_halo = n_star*effvol_halo/vol_tot
+        n_star_disk = n_star*effvol_disk/vol_tot
     else:
         # Calculate the effective volume for both profiles
         for i in tqdm(range(n_samples)):
@@ -1697,6 +1736,8 @@ class _HaloFit:
         self.aic = None
         self.bic = None
         self.loglike = None
+        self.effvol_halo = None
+        self.effvol_disk = None
         self._hasResults = False
         
         # Galpy scales and zo
@@ -1762,14 +1803,16 @@ class _HaloFit:
             ksel = ksel[self.effsel_mask]
         return ksel
     
-    def get_results(self,load_sampler=False):
+    def get_results(self,load_sampler=False,load_blobbed_effvol=True):
         '''get_results:
         
         Get results from MCMC and mass calculation. Note that the pickled
         sampler is quite big so it's optionally loaded.
         
         Args:
-            load_sampler (bool) - Load the emcee sampler [default False]
+            load_sampler (bool) - Load and set the emcee sampler [default False]
+            load_blobbed_effvol (bool) - Load and set blobbed effective volume
+                from the emcee sampler [default True]
         
         Sets:
             samples - MCMC samples
@@ -1832,14 +1875,33 @@ class _HaloFit:
                 
         # Also load the sampler if requested.
         if load_sampler:
-            self.get_sampler()
+            self.get_sampler(set_sampler=True,return_sampler=False)
+        
+        # Also load the blobbed effective volume if requested.
+        if load_blobbed_effvol:
+            if self.sampler is None:
+                _sampler = self.get_sampler(set_sampler=False,
+                    return_sampler=True)
+                blobs = _sampler.get_blobs(flat=True,discard=self.ncut)
+            else:
+                blobs = self.sampler.get_blobs(flat=True,discard=self.ncut)
+            if blobs is None:
+                print('warning: blobs requested but not found in emcee sampler')
+            else:
+                self.effvol_halo = blobs['effvol_halo']
+                self.effvol_disk = blobs['effvol_disk']
             
         self._hasResults = True
     
-    def get_sampler(self):
+    def get_sampler(self,set_sampler=False,return_sampler=True):
         '''get_sampler:
         
-        Load the pickled sampler
+        Load the pickled sampler. Warning, this can be a very large object
+        and can cause memory issues.
+
+        Args:
+            set_sampler (bool) - Set the sampler attribute [default False]
+            return_sampler (bool) - Return the sampler [default True]
         
         Sets
             sampler - MCMC sampler object
@@ -1848,7 +1910,14 @@ class _HaloFit:
         
         if os.path.exists(sampler_filename):
             with open(sampler_filename,'rb') as f:
-                self.sampler = pickle.load(f)
+                _sampler = pickle.load(f)
+                if np.prod(_sampler.chain.shape) > 1e7:
+                    print('warning: sampler is large, beware of memory usage')
+                if set_sampler:
+                    self.sampler = _sampler
+                if return_sampler:
+                    return _sampler
+                
     
     def get_ml_params(self,ml_type='mcmc_ml'):
         '''get_ml_params:
