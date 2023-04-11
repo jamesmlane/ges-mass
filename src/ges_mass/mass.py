@@ -2339,7 +2339,7 @@ class _HaloFit:
         if not self.verbose: return None
         attrs_exclude = ['opt_init','opt_post','samples','sampler','masses',
                          'mass_inds','facs','isofactors','ml','ml_ind','aic',
-                         'bic','loglike']
+                         'bic','loglike','effvol_halo','effvol_disk']
         attrs = [a for a in dir(self) if not a.startswith('_') \
                  and not a in attrs_exclude and not callable(getattr(self, a))]
         for a in attrs:
