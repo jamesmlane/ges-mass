@@ -43,3 +43,5 @@ Project-level keywords are contained in `notebooks/config.txt` and are read-in a
   - Many notebooks that generate the figures and tables for the paper.
 - 8-extra
   - Extra notebooks.
+
+Finally mock generation is done in `notebooks/apo_mocks/`. Beware when generating mocks as it can take a long time, and use a lot of system resources. The scripts show how the mocks can be constructed in pieces to circumvent these issues. See the paper for the specific mock parameters used, and `apomock` documentation for more information about how to generate mocks.
