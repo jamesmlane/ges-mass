@@ -14,7 +14,7 @@ Other packages used include, but these could probably be removed with minimal co
 - `dill`
 - `tqdm`
 
-The project also has an internally accessed `./src/` directory that contains a lot of code that is accessed by the notebooks.
+The project also has an internally accessed `./src/` directory that contains a lot of code that is accessed by the notebooks. This module is not installed, rather notebooks just path to the directory to access the code.
 
 ## Data
 
