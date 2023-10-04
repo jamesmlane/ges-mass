@@ -82,13 +82,14 @@ def _find_config_file(fname):
     '''
     config_dir = ''
     while True:
+        if os.path.exists(config_dir+fname):
+            return config_dir+fname
         if os.path.realpath(config_dir).split('/')[-1] == 'ges-mass':
             raise FileNotFoundError('Could not find configuration file within'+
                                     ' project directory structure')
         if os.path.realpath(config_dir) == '/':
             raise RuntimeError('Reached base directory')
-        if os.path.exists(config_dir+fname):
-            return config_dir+fname
+        
         config_dir = config_dir+'../'
 
 def parse_config_dict(cdict,keyword):
