@@ -18,7 +18,6 @@ notebooks/**/data/
 notebooks/**/fig/
 
 # Mocks and Dev
-notebooks/apo_mocks/
 notebooks/scratch/
 
 # Script stuff
