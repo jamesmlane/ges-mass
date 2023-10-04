@@ -1,5 +1,5 @@
 # Keywords
-BASE_DIR = /geir_data/scr/lane/projects/ges-mass/
+BASE_DIR = /epsen_data/scr/lane/projects/ges-mass/
 APOGEE_DR = dr16
 APOGEE_RESULTS_VERS = l33
 GAIA_DR = edr3
