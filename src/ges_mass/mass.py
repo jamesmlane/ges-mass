@@ -2398,6 +2398,7 @@ class HaloFit(_HaloFit):
                  fit_type=None,
                  mask_disk=True,
                  mask_halo=True,
+                 mask_acc=False,
                  # _HaloFit parameters
                  densfunc=None,
                  selec=None,
@@ -2438,8 +2439,11 @@ class HaloFit(_HaloFit):
             fit_type (str) - string specifying the type of fit. Should be one 
                 of ['gse','all']
             mask_disk (bool) - Mask the disk if fit_type='gse'? [default True]
-            mask_halo (bool) - Use a halo mask from IDs if fit_type='all'?
-                [default True]
+            mask_halo (bool) - Use a halo mask based on [Fe/H]-[Al/Fe] from 
+                IDs if fit_type='all'? [default True]
+            mask_acc (bool) - Use a mask from IDs for only stars lying in the 
+                accreted region of [Fe/H]-[Al/Fe] space if fit_type='all' 
+                [default False]
             *** See _HaloFit.__init__ for other parameters
         
         Returns:
@@ -2517,11 +2521,17 @@ class HaloFit(_HaloFit):
         # Mask out GS/E stars
         if 'gse' in fit_type:
             self.mask_disk = mask_disk
-            self.mask_halo = None # Not used
+            self.mask_halo = mask_halo
             self.halo_mask = None # Not used
+            if mask_disk and mask_halo:
+                warnings.warn('mask_disk and mask_halo both set to True, '+\
+                              'mask_halo will be ignored')
+                self.mask_halo = False
             gse_mask_filename = gap_dir+'hb_apogee_ids_'+self.selec
-            if mask_disk:
+            if self.mask_disk:
                 gse_mask_filename += '_dmask.npy'
+            elif self.mask_halo:
+                gse_mask_filename += '_hmask.npy'
             else:
                 gse_mask_filename += '.npy'
             gse_apogee_IDs = np.load(gse_mask_filename)
@@ -2544,12 +2554,23 @@ class HaloFit(_HaloFit):
             self.gse_mask = None # Not used
             self.mask_disk = None # Not used
             self.mask_halo = mask_halo
+            self.mask_acc = mask_acc
+            if mask_halo and mask_acc:
+                warnings.warn('mask_halo and mask_acc both set to True, '+\
+                              'mask_acc will be ignored')
+                self.mask_acc = False
             if mask_halo:
                 halo_mask_filename = gap_dir+'halo_apogee_ids.npy'
                 halo_apogee_IDs = np.load(halo_mask_filename)
                 halo_mask = putil.make_mask_from_apogee_ids(allstar,
                     halo_apogee_IDs)
                 self.halo_mask = halo_mask
+            elif mask_acc:
+                acc_mask_filename = gap_dir+'halo_apogee_ids_acc.npy'
+                acc_apogee_IDs = np.load(acc_mask_filename)
+                acc_mask = putil.make_mask_from_apogee_ids(allstar,
+                    acc_apogee_IDs)
+                self.acc_mask = acc_mask
             else:
                 self.halo_mask = None
             
@@ -2561,6 +2582,8 @@ class HaloFit(_HaloFit):
             
             if mask_halo:
                 obs_mask = obs_mask & halo_mask
+            elif mask_acc:
+                obs_mask = obs_mask & acc_mask
             else: # Use a default metallicity selection
                 pass
             
