@@ -3169,8 +3169,12 @@ def fraction_stars_for_fdisk_from_halo_disk_mocks(fdisk_targ, halo_densfunc,
         assert mass_from_density_samples_kwargs['int_r_range'][0] == r_min_halo
         assert mass_from_density_samples_kwargs['int_r_range'][1] == r_max_halo
 
-    # mass from density samples expects 2d list of parameters
-    halo_samples = np.atleast_2d(halo_params)
+    # mass from density samples expects 2d list of parameters, also should 
+    # normalize and warn that we're doing this
+    #halo_samples = np.atleast_2d(halo_params)
+    print('Warning: normalizing halo parameters')
+    halo_samples = np.atleast_2d(pdens.normalize_parameters(halo_params, 
+        halo_densfunc))
 
     # Normalize the density profiles to their masses so that the fdisk factors 
     # are calculated correctly
