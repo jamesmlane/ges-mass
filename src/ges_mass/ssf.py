@@ -141,6 +141,51 @@ def calc_kinematics_one_loc(df,n_samples,orbs_locs,do_perturb_orbs,gaia_input,
     
     return [orbs_samp,eELzs,actions]
 
+def calc_beta(orbs_locs):
+    '''calc_beta:
+
+    Calculate the beta values for a set of DFs, and orbits for locations
+
+    Args:
+        orbs_locs (list) - List of lists of orbit.Orbit instances, one for 
+            each location with n_samples orbits in each.
+    
+    Returns:
+        betas (np.array) - Array of beta values. shape (n_dfs,n_locs)
+    '''
+    # Assume these dimensions
+    n_dfs = len(orbs_locs)
+    n_locs = len(orbs_locs[0])
+    betas = np.zeros((n_dfs,n_locs))
+    for i in range(n_dfs):
+        for j in range(n_locs):
+            betas[i,j] = calc_beta_one_loc(orbs_locs[i][j])
+    return betas
+
+def calc_beta_one_loc(orbs):
+    '''calc_beta_one_loc:
+
+    Calculate the beta value for a set of orbits
+
+    Args:
+        orbs (orbit.Orbit instance) - Orbit object representing location 
+            to draw samples
+    
+    Returns:
+        beta (float) - Beta value
+    '''
+    # Calculate the beta value
+    vr = orbs.vr()
+    vtheta = orbs.vtheta()
+    vphi = orbs.vT()
+
+    if isinstance(vr,apu.Quantity):
+        vr = vr.value
+        vtheta = vtheta.value
+        vphi = vphi.value
+    
+    beta = 1 - ((np.std(vtheta)**2 + np.std(vphi)**2) / (2*np.std(vr)**2))
+    return beta
 
 def fit_smooth_spline(x,y,s=0):
     '''fit_smooth_spline:
