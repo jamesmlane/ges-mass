@@ -13,7 +13,7 @@
 __author__ = "James Lane"
 
 ### Imports
-import os
+import os, sys
 import numpy as np
 import warnings
 import isodist
@@ -59,7 +59,7 @@ def average_mass(iso, weight_inverse_z=True, weight_log_age=False,
         sys.exit('Must have weights_imf key')
     
     if weight_log_age:
-        weights *= 10**(iso[logage_key]-9)
+        weights *= 10**(iso[age_key]-9)
     if weight_inverse_z:
         weights *= 1/iso[z_key]
     
@@ -104,7 +104,7 @@ def mass_ratio(iso, logg_range, jk_range, weight_inverse_z=True,
         sys.exit('Must have weights_imf key')
     
     if weight_log_age:
-        weights *= 10**(iso[logage_key]-9)
+        weights *= 10**(iso[age_key]-9)
     if weight_inverse_z:
         weights *= 1/iso[z_key]
     
@@ -249,6 +249,8 @@ def calculate_weights_imf(iso, weights_key='weights_imf', imf=None, m_min=0.,
 def sampleiso(N, iso, return_inds=False, return_iso=False, lowfeh=True):
     '''sampleiso:
     
+    OLD FUNCTION.
+
     Sample isochrone recarray iso weighted by lognormal Chabrier IMF. Function 
     is used by APOGEE_iso_samples.
     
@@ -289,9 +291,10 @@ def sampleiso(N, iso, return_inds=False, return_iso=False, lowfeh=True):
 def APOGEE_iso_samples(nsamples, rec, fehrange=[-1,-1.5], lowfehgrid=True):
     '''APOGEE_iso_samples:
     
+    OLD FUNCTION
+
     Sample from an isochrone grid in accordance with the APOGEE selection, 
-    including logg cuts for giants and minimum mass. Function is used 
-    in the calculation of the effective selection function.
+    including logg cuts for giants and minimum mass. 
     
     Note: The limits in logg and J-K are hardcoded. Make sure this does not 
     present a problem anywhere in the code.
