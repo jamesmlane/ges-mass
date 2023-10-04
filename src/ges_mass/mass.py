@@ -691,8 +691,8 @@ def mass_from_density_samples(samples, densfunc, n_star, effsel, effsel_grid,
                 masses[i] =  np.sum(denstxyz*deltafactor)
             facs[i] = fac
             # Also maybe some sort of actual integrator?
-    
-    print('Calculated '+str(n_mass)+'/'+str(n_mass)+' masses')
+    if verbose:
+        print('Calculated '+str(n_mass)+'/'+str(n_mass)+' masses')
     return masses, facs, mass_inds, isofactors
 
 
